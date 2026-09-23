@@ -200,7 +200,9 @@ contract FlowRouterTest is Test {
         assertEq(router.filled(recipient, SAVE), 500 * ONE);
 
         // Reorder and re-rate the same goal.
-        _setPolicy(recipient, _two(_leg(debtLike, 1_000, DEBT, 0), _leg(savings, 1_000, SAVE, 1_000 * ONE)));
+        _setPolicy(
+            recipient, _two(_leg(debtLike, 1_000, DEBT, 0), _leg(savings, 1_000, SAVE, 1_000 * ONE))
+        );
         debtLike.setCapacity(recipient, type(uint256).max);
 
         assertEq(router.filled(recipient, SAVE), 500 * ONE, "still half funded");
@@ -253,14 +255,16 @@ contract FlowRouterTest is Test {
     // -------------------------------------------------------------- validation
 
     function test_RejectsOverAllocation() public {
-        FlowRouter.Leg[] memory legs = _two(_leg(savings, 6_000, SAVE, 0), _leg(debtLike, 4_001, DEBT, 0));
+        FlowRouter.Leg[] memory legs =
+            _two(_leg(savings, 6_000, SAVE, 0), _leg(debtLike, 4_001, DEBT, 0));
         vm.prank(recipient);
         vm.expectRevert(FlowRouter.AllocationExceedsUnity.selector);
         router.setPolicy(legs);
     }
 
     function test_RejectsDuplicateRefs() public {
-        FlowRouter.Leg[] memory legs = _two(_leg(savings, 1_000, SAVE, 0), _leg(debtLike, 1_000, SAVE, 0));
+        FlowRouter.Leg[] memory legs =
+            _two(_leg(savings, 1_000, SAVE, 0), _leg(debtLike, 1_000, SAVE, 0));
         vm.prank(recipient);
         vm.expectRevert(FlowRouter.DuplicateRef.selector);
         router.setPolicy(legs);
@@ -359,16 +363,18 @@ contract FlowRouterTest is Test {
 
     /// @dev Value is conserved for any policy: what is not routed is spendable,
     ///      and nothing is created or destroyed in between.
-    function testFuzz_ConservesValue(uint96 amount, uint16 bpsA, uint16 bpsB, uint96 cap, uint96 sinkRoom)
-        public
-    {
+    function testFuzz_ConservesValue(
+        uint96 amount,
+        uint16 bpsA,
+        uint16 bpsB,
+        uint96 cap,
+        uint96 sinkRoom
+    ) public {
         amount = uint96(bound(amount, 1, 10_000 * ONE));
         bpsA = uint16(bound(bpsA, 0, 10_000));
         bpsB = uint16(bound(bpsB, 0, 10_000 - bpsA));
 
-        _setPolicy(
-            recipient, _two(_leg(debtLike, bpsA, DEBT, 0), _leg(savings, bpsB, SAVE, cap))
-        );
+        _setPolicy(recipient, _two(_leg(debtLike, bpsA, DEBT, 0), _leg(savings, bpsB, SAVE, cap)));
         debtLike.setCapacity(recipient, sinkRoom);
 
         uint256 before = musd.balanceOf(payer);
