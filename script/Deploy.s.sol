@@ -3,36 +3,39 @@ pragma solidity 0.8.28;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-import {FlowRouter} from "../src/FlowRouter.sol";
-import {SavingsSink} from "../src/sinks/SavingsSink.sol";
+import {BackstopVault} from "../src/BackstopVault.sol";
+import {IStabilityPool} from "../src/interfaces/IStabilityPool.sol";
+import {IPriceFeed} from "../src/interfaces/IPriceFeed.sol";
+import {ISwapper} from "../src/interfaces/ISwapper.sol";
 
-/// @notice Deploys Sluice.
+/// @notice Deploys the Backstop vault.
 ///
 /// Env:
-///   MUSD_ADDRESS         MUSD on the target chain. Mezo mainnet:
-///                        0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186
-///   SMUSD_VAULT_ADDRESS  The MUSD Savings Vault (sMUSD), ERC-4626.
-///
-/// Nothing here is ownable, so there is no admin key to hand over and no
-/// post-deploy wiring step that could be left half-done.
+///   MUSD_ADDRESS            MUSD. Mezo mainnet: 0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186
+///   STABILITY_POOL_ADDRESS  MUSD's StabilityPool.
+///   PRICE_FEED_ADDRESS      MUSD's PriceFeed. Reused so the vault prices BTC
+///                           exactly as the protocol it backstops does.
+///   SWAPPER_ADDRESS         An ISwapper over Mezo Swap's BTC/MUSD pool.
+///   OWNER_ADDRESS           Defaults to the deployer.
 contract Deploy is Script {
     function run() external {
         address musd = vm.envAddress("MUSD_ADDRESS");
-        address sMusdVault = vm.envAddress("SMUSD_VAULT_ADDRESS");
-
-        // Fail before broadcasting rather than after a half-finished deploy.
-        require(IERC4626(sMusdVault).asset() == musd, "savings vault asset is not MUSD");
+        address pool = vm.envAddress("STABILITY_POOL_ADDRESS");
+        address feed = vm.envAddress("PRICE_FEED_ADDRESS");
+        address swapper = vm.envAddress("SWAPPER_ADDRESS");
+        address owner = vm.envOr("OWNER_ADDRESS", msg.sender);
 
         vm.startBroadcast();
-        FlowRouter router = new FlowRouter(IERC20(musd));
-        SavingsSink savingsSink = new SavingsSink(IERC4626(sMusdVault));
+        BackstopVault vault = new BackstopVault(
+            IERC20(musd), IStabilityPool(pool), IPriceFeed(feed), ISwapper(swapper), owner
+        );
         vm.stopBroadcast();
 
-        console2.log("MUSD          ", musd);
-        console2.log("sMUSD vault   ", sMusdVault);
-        console2.log("FlowRouter    ", address(router));
-        console2.log("SavingsSink   ", address(savingsSink));
+        console2.log("BackstopVault (bMUSD) ", address(vault));
+        console2.log("  MUSD               ", musd);
+        console2.log("  StabilityPool      ", pool);
+        console2.log("  PriceFeed          ", feed);
+        console2.log("  Swapper            ", swapper);
     }
 }

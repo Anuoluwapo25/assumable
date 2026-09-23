@@ -1,140 +1,113 @@
-# Sluice
+# Backstop
 
-**Programmable receive policies for MUSD.**
+**An auto-compounding vault over MUSD's Stability Pool.**
 
-An account declares, once, where its income should go. Every MUSD payment it
-receives from then on obeys that policy atomically, in the same transaction as
-the payment, with no keeper, no scheduled job, and no custody.
+Deposit MUSD, get `bMUSD`, and earn from every liquidation on Mezo — without
+ever touching a BTC balance or a harvest button.
+
+## What it does
+
+The Stability Pool is what keeps MUSD solvent. When a Trove falls below 110%
+collateralization, the pool absorbs its debt: depositors' MUSD is burned, and
+they receive the liquidated BTC **at a discount**. You are paid a premium for
+taking on bad debt.
+
+The catch is that it isn't passive. Your gains arrive as raw BTC that sits idle
+until you notice, convert it, and redeposit. Miss that, and you're holding an
+unhedged BTC position you never asked for while your MUSD stake shrinks.
+
+Backstop closes the loop:
 
 ```
-payer ──▶ FlowRouter ──┬──▶ leg 1  ──▶ sink   (capacity-bounded)
-   MUSD                ├──▶ leg 2  ──▶ sink
-                       └──▶ remainder ──▶ recipient's wallet (spendable)
+        a Trove is liquidated
+                 │
+   pool burns your MUSD, pays you BTC at a discount
+                 │
+      harvest()  ├─▶ swaps BTC → MUSD   (floor set by MUSD's own oracle)
+                 │
+                 └─▶ redeposits into the pool
+                         │
+              your position now absorbs more, and earns more
 ```
 
-## Why this belongs on Mezo
+Your share price rises. You never hold BTC. You never send a transaction.
 
-MUSD is income. People borrow it against Bitcoin, earn it, and get paid in it.
-But a stablecoin balance is inert: every decision about what to do with it —
-service the loan it came from, save it, spend it — is a separate transaction the
-holder has to remember to send.
+## Why this is the right thing to build on Mezo
 
-Sluice makes those decisions once and enforces them at the moment of receipt.
-The two flagship destinations are Mezo's own products:
+It strengthens the exact mechanism MUSD's solvency depends on. A deeper
+Stability Pool means liquidations are absorbed rather than redistributed, which
+is what protects every borrower on the network. Backstop doesn't compete with
+anything Mezo runs — it makes their backstop bigger by making it worth
+supplying.
 
-- **The MUSD Savings Vault.** Saved income becomes sMUSD in the recipient's own
-  wallet, appreciating as Bitcoin borrowers pay interest and origination fees
-  into the vault. Income earns Mezo protocol revenue instead of sitting idle.
-- **A Trove.** Income automatically services the Bitcoin-backed loan it came
-  from, so collateral stays safe without the borrower watching it. (Design
-  below; shipping after the repayment-authorization question is settled.)
+It is also unbuildable anywhere else. The design is dictated, line by line, by
+how MUSD's fork of Liquity actually behaves.
 
-Remove MUSD and there is no protocol here. The sinks *are* Mezo.
+## Three protocol behaviours that shaped the code
 
-## The primitive
+Each of these is the kind of thing that only shows up by reading the source, and
+each one breaks a naive implementation.
 
-Sluice does not decide where income should go. It decides *how much* goes where,
-and hands over. Destinations are `ISink` implementations, chosen by the account
-that owns the policy.
+**Gains are pushed, not pulled.** There is no `claim` on the Stability Pool.
+`provideToSP` and `withdrawFromSP` *both* send accrued BTC to the caller before
+doing anything else. The vault is payable and treats BTC arriving unannounced as
+routine — including during an ordinary deposit.
 
-```solidity
-interface ISink {
-    function asset() external view returns (address);
-    function capacity(address account) external view returns (uint256);
-    function deposit(address account, uint256 amount) external returns (uint256 applied);
-    function balanceOf(address account) external view returns (uint256);
-}
-```
+**`withdrawFromSP(amount)` reverts while any Trove is liquidatable.**
+`_requireNoUnderCollateralizedTroves` guards it — but `withdrawFromSP(0)` skips
+the check. That is why harvesting always works even when withdrawing principal
+does not, and why blocked withdrawals surface as
+`WithdrawalsBlockedByPendingLiquidations` rather than an unexplained revert a UI
+can't act on.
 
-`capacity` is the interesting one. It is live protocol state, not a user
-setting, and the router treats it as a hard limit — so a policy reading
+**Unharvested BTC has to count toward `totalAssets`.** A liquidation cuts your
+MUSD deposit at the same instant it credits the BTC. A vault that valued only
+the MUSD would show its share price crater on every liquidation and leap on
+every harvest — and anyone could deposit into the gap and leave after. So
+pending BTC is valued continuously at MUSD's own `PriceFeed`, discounted by the
+same margin the harvest swap must clear. A harvest can then only ever move the
+share price *up*. [`test_HarvestCannotBeSandwiched`](test/BackstopVault.t.sol)
+pins it.
 
-> 50% services my Trove · 20% to savings · the rest is spendable
+## Security
 
-pays down debt until the debt is gone, and then moves that 50% into savings **by
-itself**, with no transaction from the account and no change to the policy. A
-vault that pauses deposits, a loan that gets repaid elsewhere, a cap that fills:
-all of them just change a number that the next payment reads.
+- **Harvest is permissionless and paid.** A keeper fee (0.5%, hard-capped at 5%)
+  means compounding doesn't depend on the deployer staying alive.
+- **The swap floor comes from the oracle, not the caller.** A keeper passing
+  `minMusdOut = 0` still cannot hand the harvest to a sandwich; the vault
+  computes its own floor and rejects anything below it.
+- **The owner cannot reach deposits.** The only powers are repointing the swap
+  venue and tuning the fee and slippage tolerance, both bounded by constants
+  that cannot be raised. A malicious swapper costs at most the slippage
+  tolerance on a single harvest, because it is called and settled in one
+  transaction and never custodies anything.
+- **ERC-4626 via OpenZeppelin**, so the first-depositor inflation attack is
+  handled by virtual shares rather than by hand.
 
-That cascade is the protocol. Everything else is plumbing.
-
-## Properties
-
-**No custody.** MUSD moves from the payer to the recipient and from the payer to
-each sink inside one call. `FlowRouter`'s MUSD balance is zero before and after
-every payment. `SavingsSink` is stateless and mints sMUSD with `receiver` set to
-the account, never to itself — savings are ordinary tokens in the recipient's
-wallet from the instant they are paid, free to be staked in the gauge, lent, or
-sold without Sluice's involvement. There is no share ledger, no withdrawal
-function, and no balance for an exploit to find.
-
-**No admin.** `FlowRouter` has no owner, no pause, no fee switch and no sink
-allowlist. A deployed router is finished. Recipients who want to stop routing
-clear their own policy.
-
-**Self-sovereign policies.** Every mutation keys off `msg.sender`. A payer
-cannot create, read into existence, alter, or opt out of someone else's policy;
-a recipient cannot be paid in a way that bypasses their own rules.
-
-**Blast radius of one.** Sinks are deliberately not allowlisted, because an
-allowlist is an admin key and composability is the point. A hostile sink can
-burn its own chooser's gas or revert their payments — it can never touch funds
-belonging to anyone else. Three tests pin this down: a sink that tries to
-re-enter `route`, one that under-applies a deposit to strand a wei, and one that
-overstates capacity.
-
-**Preview parity.** `preview` and `route` share one planner, so the breakdown a
-payer is shown before signing is the breakdown that executes.
-
-## Contracts
-
-| | |
-|---|---|
-| [`FlowRouter.sol`](src/FlowRouter.sol) | Policy registry and the cascade. Ownerless, custody-free. |
-| [`ISink.sol`](src/interfaces/ISink.sol) | The extension point. Three rules implementations must hold to. |
-| [`SavingsSink.sol`](src/sinks/SavingsSink.sol) | MUSD Savings Vault. Stateless; sMUSD goes straight to the account. |
-
-A policy is up to 8 legs of `{sink, bps, ref, cap}`. `ref` is the leg's stable
-identity: progress is tracked against it, so re-rating or reordering a policy
-does not restart a half-funded goal, and a UI hangs human-readable labels off it
-without putting strings on-chain.
-
-## Planned: `TroveSink`
-
-MUSD is a [Threshold USD](https://github.com/Threshold-USD/dev) fork of Liquity;
-positions are Troves. A Trove sink reports capacity as the debt that is *legally*
-repayable — entire debt less the protocol's minimum-debt floor and the $200 MUSD
-gas compensation held by `GasPool` — because repaying below that floor reverts
-rather than closing the position. Getting that boundary right is most of the
-work, and it is the reason capacity is a first-class part of `ISink`.
-
-One open question gates it: `BorrowerOperations.repayMUSD` burns from the
-caller, so a third party cannot repay another account's Trove directly. Mezo
-ships `BorrowerOperationsSignatures.repayMUSDWithSignature`, explicitly for
-third-party execution, but an EIP-712 signature commits to a fixed amount and a
-deadline — which does not fit "repay whatever arrives, whenever it arrives." The
-alternatives are a per-account proxy that owns the Trove, or a standing
-authorization. **This needs confirming with the Mezo team before it is built.**
-
-## Status
-
-21 tests, including hostile-sink handling and a fuzzed value-conservation
-invariant.
+17 tests, including a faithful re-implementation of the pool's product-sum
+(`P`/`S`) snapshot accounting in [the mock](test/mocks/MockStabilityPool.sol), so
+liquidation tests exercise the real math rather than a stubbed balance.
 
 ```
 forge test
 ```
 
-**Not yet deployed.** `SMUSD_VAULT_ADDRESS` in [`.env.example`](.env.example) is
-blank on purpose: Mezo's
-[contracts reference](https://mezo.org/docs/users/resources/contracts-reference/)
-publishes mainnet MUSD, MEZO and pool addresses, but not the Savings Vault, and
-no testnet core addresses. The vault's address and its ERC-4626 conformance are
-the two things to confirm before deploying. [`Deploy.s.sol`](script/Deploy.s.sol)
-asserts `vault.asset() == MUSD` before broadcasting, so a wrong address fails
-early rather than leaving a half-deployed system.
+## Before deploying
 
-```bash
-cp .env.example .env   # fill in SMUSD_VAULT_ADDRESS
-forge script script/Deploy.s.sol --rpc-url mezo_testnet --broadcast
-```
+Two addresses are missing from the public docs and must be confirmed before
+this can run on-chain:
+
+- **`StabilityPool` and `PriceFeed`.** Mezo's
+  [contracts reference](https://mezo.org/docs/users/resources/contracts-reference/)
+  publishes MUSD, MEZO and pool addresses, but not MUSD's core contracts. They
+  are in the `mezo-org/musd` deployment artifacts, or ask in Discord.
+- **A BTC/MUSD swap venue.** The mainnet
+  [MUSD/BTC pool](https://mezo.org/docs/users/resources/contracts-reference/) is
+  `0x52e604c44417233b6CcEDDDc0d640A405Caacefb`, but Mezo Swap's router interface
+  isn't published. [`ISwapper`](src/interfaces/ISwapper.sol) exists so that
+  binding is a single small contract, written once the interface is known,
+  touching no depositor accounting.
+
+One assumption to verify: `IPriceFeed.fetchPrice()` is assumed to return 18
+decimals, as Liquity-derived feeds do. The constructor sanity-bounds it so a
+mis-scaled feed fails at deploy rather than silently mispricing every gain.
