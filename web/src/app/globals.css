@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-page font-sans text-ink antialiased;
+    font-variation-settings: "wdth" 100;
+  }
+
+  ::selection {
+    @apply bg-musd text-white;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Archivo's width axis does the work a second typeface would: expanded for
+     things you look at, condensed for things you scan. */
+  .wide {
+    font-variation-settings: "wdth" 125;
+  }
+  .narrow {
+    font-variation-settings: "wdth" 75;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-full px-5 py-3 text-[15px] font-semibold
+      transition-[background-color,color,transform,box-shadow] duration-150
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musd
+      active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35;
+  }
+  .btn-ink {
+    @apply btn bg-ink text-page hover:bg-musd;
+  }
+  .btn-btc {
+    @apply btn bg-btc text-ink hover:bg-ink hover:text-btc;
+  }
+  .btn-outline {
+    @apply btn border-[1.5px] border-ink text-ink hover:bg-ink hover:text-page;
+  }
+
+  .link {
+    @apply underline decoration-ink-faint decoration-1 underline-offset-[3px] transition-colors hover:text-musd hover:decoration-musd;
+  }
+}
+
+.pending-figure {
+  @apply rounded-[2px] bg-ink/10;
+  animation: breathe 1.4s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
