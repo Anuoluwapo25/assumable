@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { explorerAddress, explorerTx, vaultAddress } from "@/lib/config";
+import { explorerAddress, explorerTx } from "@/lib/config";
 import { short } from "@/lib/format";
 import type { TxState } from "@/lib/tx";
 
@@ -14,8 +14,6 @@ export function Figure({
   width?: string;
 }) {
   if (value === undefined || value === "—") {
-    // Before launch nothing is coming, so don't pretend it's loading.
-    if (vaultAddress === null) return <span className={`opacity-40 ${className}`}>—</span>;
     return (
       <span
         aria-label="loading"

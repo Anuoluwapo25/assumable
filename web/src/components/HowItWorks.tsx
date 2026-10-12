@@ -1,82 +1,72 @@
-"use client";
-
-import { bps } from "@/lib/format";
-import type { VaultState } from "@/lib/vault";
 import { SectionHead } from "./primitives";
 
-// The same pool as the hero, at three moments. Coordinates are in a 300x170
-// box; `level` is the water's surface, lower numbers being fuller.
-const BEFORE = 62;
-
-function Tank({ level, children }: { level: number; children?: React.ReactNode }) {
-  const wave = `M0 ${level} C 30 ${level - 5}, 60 ${level - 5}, 90 ${level} S 150 ${level + 5}, 180 ${level} S 240 ${level - 5}, 270 ${level} S 300 ${level + 3}, 300 ${level + 3} V 170 H 0 Z`;
+// The same Trove at three moments, drawn as a bar of BTC value: ink is what's
+// owed, MUSD blue is the holder's equity. Coordinates are in a 300x170 box.
+function Trove({ owner, children }: { owner: "seller" | "buyer"; children?: React.ReactNode }) {
   return (
     <svg viewBox="0 0 300 170" className="block h-auto w-full" aria-hidden>
-      <path d={wave} className="fill-musd" />
-      <line x1="0" x2="300" y1={BEFORE} y2={BEFORE} className="stroke-ink" strokeWidth="1" strokeDasharray="3 4" opacity="0.35" />
+      <rect x="30" y="70" width="240" height="34" rx="17" className="fill-musd" />
+      <rect x="30" y="70" width="130" height="34" rx="17" className="fill-ink" />
+      <rect x="140" y="70" width="20" height="34" className="fill-ink" />
+      <text x="44" y="92" className="fill-white text-[11px]" opacity="0.85">debt</text>
+      <text x="172" y="92" className="fill-white text-[11px]" opacity="0.9">equity</text>
+      <text x="30" y="56" className="fill-ink text-[11px]" opacity="0.5">{owner === "seller" ? "held by the seller" : "held by the buyer"}</text>
       {children}
     </svg>
   );
 }
 
-const grains: [number, number, number][] = [
-  [118, 158, 5], [132, 160, 4], [146, 157, 6], [160, 159, 4.5], [174, 158, 5],
-  [126, 150, 4], [140, 149, 5], [154, 150, 4], [168, 151, 4.5], [147, 142, 4],
-];
+const Key = ({ x, y }: { x: number; y: number }) => (
+  <g transform={`translate(${x} ${y})`}>
+    <circle cx="0" cy="0" r="9" className="fill-btc" />
+    <path d="M7 -2.5h20v5h-3.5v5h-4v-5H7z" className="fill-btc" />
+  </g>
+);
 
-export function HowItWorks({ vault }: { vault: VaultState }) {
+export function HowItWorks() {
   const steps = [
     {
       art: (
-        <Tank level={76}>
-          {grains.map(([x, y, r], i) => (
-            <circle key={i} cx={x} cy={y} r={r} className="fill-btc" />
-          ))}
-          <text x="10" y={BEFORE - 7} className="fill-ink text-[11px]" opacity="0.5">before</text>
-          <path d="M268 30 V 66 M261 59 L268 67 L275 59" className="stroke-ink" strokeWidth="2" fill="none" strokeLinecap="round" />
-        </Tank>
+        <Trove owner="seller">
+          <Key x={60} y={135} />
+          <text x="98" y="139" className="fill-ink text-[11px]" opacity="0.55">NFT = control of the Trove</text>
+        </Trove>
       ),
-      title: "A Trove goes under.",
-      body: "The pool burns MUSD to repay the Trove's debt, and takes its BTC, worth about 10% more. The water drops a little; BTC settles on the floor.",
-      fine: "The pool pushes that BTC to the vault without being asked, so the vault is built to receive it at any moment.",
+      title: "Open a Trove you can sell.",
+      body: "A normal MUSD Trove, opened by a small account contract that obeys whoever holds its NFT. Borrow, repay and add BTC exactly as you would on Mezo.",
+      fine: "Borrowed MUSD and withdrawn BTC go straight to you. The account never holds anything a buyer could inherit.",
     },
     {
       art: (
-        <Tank level={76}>
-          {grains.map(([x, y, r], i) => (
-            <circle
-              key={i}
-              cx={x + (i % 2 ? 10 : -6)}
-              cy={y - 30 - (i % 4) * 16}
-              r={r * 0.8}
-              className="fill-btc"
-              opacity={0.95 - (i % 4) * 0.22}
-            />
-          ))}
-          <path d="M268 66 V 30 M261 37 L268 29 L275 37" className="stroke-ink" strokeWidth="2" fill="none" strokeLinecap="round" />
-        </Tank>
+        <Trove owner="seller">
+          <line x1="244" x2="244" y1="62" y2="112" className="stroke-btc" strokeWidth="3" />
+          <text x="186" y="146" className="fill-ink text-[11px]" opacity="0.6">ask: 97% of equity</text>
+          <path d="M160 125 H 270" className="stroke-musd" strokeWidth="1.5" strokeDasharray="3 3" />
+        </Trove>
       ),
-      title: "Anyone harvests it.",
-      body: `The BTC is sold for MUSD at no less than ${bps(vault.swapQualityBps).replace("—", "99%")} of MUSD's own oracle price, so the swap can't be sandwiched. Whoever calls it keeps ${bps(vault.harvestFeeBps).replace("—", "0.5%")}.`,
-      fine: "Harvesting still works while withdrawals are paused: it uses the one call the pool never blocks.",
+      title: "List its equity.",
+      body: "Ask a fixed MUSD price, or a share of live equity that re-prices with BTC on its own. Buyers can also escrow offers on any Trove, listed or not.",
+      fine: "You keep the NFT while listed, so you can still rescue the Trove if BTC drops.",
     },
     {
       art: (
-        <Tank level={46}>
-          <text x="10" y={BEFORE + 15} className="fill-white text-[11px]" opacity="0.8">before</text>
-        </Tank>
+        <Trove owner="buyer">
+          <Key x={240} y={135} />
+          <path d="M70 135 H 205 M197 129 L206 135 L197 141" className="stroke-ink" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.5" />
+          <text x="60" y="160" className="fill-ink text-[11px]" opacity="0.55">MUSD to the seller, NFT to the buyer</text>
+        </Trove>
       ),
-      title: "It goes back in, higher.",
-      body: "The MUSD is redeposited in the same transaction. The pool ends fuller than before the liquidation, and your share of it grows.",
-      fine: "The BTC already counted toward the share price while it waited, at the floor price, so a harvest can only move the price up.",
+      title: "The buyer assumes it.",
+      body: "One transaction: the seller walks away with the equity and owes nothing; the buyer gets the BTC, the debt and its locked rate. Nothing is repaid or closed.",
+      fine: "The buyer's limits on price, debt and collateral are checked in that same transaction, so a listing can't be changed under them.",
     },
   ];
 
   return (
     <section id="how" className="mx-auto max-w-[1240px] scroll-mt-6 px-4 pt-24 sm:px-8 sm:pt-32">
       <SectionHead
-        title="One loop, every liquidation."
-        aside="What happens between a Trove going under and your share price going up."
+        title="An assumable loan, on Bitcoin."
+        aside="Like an assumable mortgage: the house, the loan and its rate change hands together."
       />
       <ol className="grid gap-4 md:grid-cols-3 lg:gap-5">
         {steps.map((s, i) => (

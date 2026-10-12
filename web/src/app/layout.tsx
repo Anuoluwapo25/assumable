@@ -13,12 +13,12 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Backstop — Earn from every liquidation on Mezo",
+  title: "Assumable: buy and sell live MUSD loans on Mezo",
   description:
-    "An auto-compounding vault over MUSD's Stability Pool. Deposit MUSD, earn liquidated BTC at a discount, and never hold BTC or press a harvest button.",
+    "Sell your BTC-backed MUSD loan without repaying it. Buyers take over the BTC, the debt and its locked interest rate in one transaction.",
   openGraph: {
-    title: "Backstop",
-    description: "Earn from every liquidation on Mezo, compounded back into MUSD.",
+    title: "Assumable",
+    description: "Assumable loans for Bitcoin, on Mezo.",
     type: "website",
   },
 };

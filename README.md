@@ -1,113 +1,120 @@
-# Backstop
+# Assumable
 
-**An auto-compounding vault over MUSD's Stability Pool.**
+**Assumable loans for Bitcoin: buy and sell live MUSD Troves on Mezo.**
 
-Deposit MUSD, get `bMUSD`, and earn from every liquidation on Mezo — without
-ever touching a BTC balance or a harvest button.
+In real estate, an *assumable mortgage* lets a buyer take over the seller's
+loan, rate and all, together with the house. Assumable does the same for
+MUSD: you sell your whole Trove, meaning its BTC, its debt and its locked
+interest rate, in one transaction. You never repay it or close it.
 
-## What it does
+## The problem
 
-The Stability Pool is what keeps MUSD solvent. When a Trove falls below 110%
-collateralization, the pool absorbs its debt: depositors' MUSD is burned, and
-they receive the liquidated BTC **at a discount**. You are paid a premium for
-taking on bad debt.
+MUSD lets you borrow against BTC without selling it. Most people borrow
+MUSD in order to **spend** it. That leaves them stuck:
 
-The catch is that it isn't passive. Your gains arrive as raw BTC that sits idle
-until you notice, convert it, and redeposit. Miss that, and you're holding an
-unhedged BTC position you never asked for while your MUSD stake shrinks.
+- **Exiting means buying the debt back.** MUSD ties a Trove to the address
+  that opened it. The only way out is to repay the whole debt. If you spent
+  the MUSD, you first have to buy it all back on the market, with slippage,
+  just to reach your own BTC.
+- **A low rate can't be passed on.** Each Trove keeps the interest rate it
+  was opened at. When governance raises the rate for new Troves, an old 1%
+  Trove becomes valuable to someone, but there's no way to sell it.
+- **Liquidation is the only other exit.** A borrower who can't repay can
+  only wait until they're liquidated, which costs them the liquidation
+  penalty on top.
 
-Backstop closes the loop:
-
-```
-        a Trove is liquidated
-                 │
-   pool burns your MUSD, pays you BTC at a discount
-                 │
-      harvest()  ├─▶ swaps BTC → MUSD   (floor set by MUSD's own oracle)
-                 │
-                 └─▶ redeposits into the pool
-                         │
-              your position now absorbs more, and earns more
-```
-
-Your share price rises. You never hold BTC. You never send a transaction.
-
-## Why this is the right thing to build on Mezo
-
-It strengthens the exact mechanism MUSD's solvency depends on. A deeper
-Stability Pool means liquidations are absorbed rather than redistributed, which
-is what protects every borrower on the network. Backstop doesn't compete with
-anything Mezo runs — it makes their backstop bigger by making it worth
-supplying.
-
-It is also unbuildable anywhere else. The design is dictated, line by line, by
-how MUSD's fork of Liquity actually behaves.
-
-## Three protocol behaviours that shaped the code
-
-Each of these is the kind of thing that only shows up by reading the source, and
-each one breaks a naive implementation.
-
-**Gains are pushed, not pulled.** There is no `claim` on the Stability Pool.
-`provideToSP` and `withdrawFromSP` *both* send accrued BTC to the caller before
-doing anything else. The vault is payable and treats BTC arriving unannounced as
-routine — including during an ordinary deposit.
-
-**`withdrawFromSP(amount)` reverts while any Trove is liquidatable.**
-`_requireNoUnderCollateralizedTroves` guards it — but `withdrawFromSP(0)` skips
-the check. That is why harvesting always works even when withdrawing principal
-does not, and why blocked withdrawals surface as
-`WithdrawalsBlockedByPendingLiquidations` rather than an unexplained revert a UI
-can't act on.
-
-**Unharvested BTC has to count toward `totalAssets`.** A liquidation cuts your
-MUSD deposit at the same instant it credits the BTC. A vault that valued only
-the MUSD would show its share price crater on every liquidation and leap on
-every harvest — and anyone could deposit into the gap and leave after. So
-pending BTC is valued continuously at MUSD's own `PriceFeed`, discounted by the
-same margin the harvest swap must clear. A harvest can then only ever move the
-share price *up*. [`test_HarvestCannotBeSandwiched`](test/BackstopVault.t.sol)
-pins it.
-
-## Security
-
-- **Harvest is permissionless and paid.** A keeper fee (0.5%, hard-capped at 5%)
-  means compounding doesn't depend on the deployer staying alive.
-- **The swap floor comes from the oracle, not the caller.** A keeper passing
-  `minMusdOut = 0` still cannot hand the harvest to a sandwich; the vault
-  computes its own floor and rejects anything below it.
-- **The owner cannot reach deposits.** The only powers are repointing the swap
-  venue and tuning the fee and slippage tolerance, both bounded by constants
-  that cannot be raised. A malicious swapper costs at most the slippage
-  tolerance on a single harvest, because it is called and settled in one
-  transaction and never custodies anything.
-- **ERC-4626 via OpenZeppelin**, so the first-depositor inflation attack is
-  handled by virtual shares rather than by hand.
-
-17 tests, including a faithful re-implementation of the pool's product-sum
-(`P`/`S`) snapshot accounting in [the mock](test/mocks/MockStabilityPool.sol), so
-liquidation tests exercise the real math rather than a stubbed balance.
+## How it works
 
 ```
+TrovePositions (ERC-721) ── mints NFT #n and deploys ──▶ TroveAccount #n (minimal clone)
+                                                          └─ the borrower of record of a real MUSD Trove
+
+   whoever holds NFT #n controls TroveAccount #n
+   transferring the NFT = transferring the Trove, its BTC, its debt and its locked rate
+
+TroveMarket
+   list(id, pricing)   fixed MUSD price, or a share of live equity priced by MUSD's oracle
+   buy(id, maxPrice, maxDebt, minColl)
+                       atomic: MUSD to the seller, NFT to the buyer;
+                       reverts if the Trove changed since the buyer looked
+   makeOffer / acceptOffer
+                       buyers escrow MUSD against any position, listed or not
+```
+
+- **`TroveAccount`** opens and runs the Trove through MUSD's own
+  `BorrowerOperations`, and only follows orders from the current NFT
+  holder. Borrowed MUSD and withdrawn BTC go straight to the holder, so the
+  account never holds value that a buyer could inherit or a seller could
+  leave behind. Anyone can add collateral or repay, since that only makes
+  the Trove safer.
+- **Listings are non-custodial.** The seller keeps the NFT, so they can
+  still rescue the Trove in a crash. Because the seller could also *weaken*
+  the Trove after listing, every purchase carries the buyer's own limits on
+  price, debt and collateral, checked in the same transaction as the
+  transfer.
+- **Equity pricing** asks, for example, 97% of (BTC value − debt) at MUSD's
+  oracle price, so the price follows BTC with no manual updates. A seller
+  can set an optional floor. A premium above 100% fits Troves locked at a
+  rate below today's.
+- **Offers** let a buyer escrow MUSD for a specific Trove, with the same
+  limits, and the holder accepts whenever they like.
+
+## Proven against the real MUSD system
+
+`test/TroveMarket.fork.t.sol` runs on a fork of Mezo testnet against the
+live MUSD contracts. It opens a contract-owned Trove, sells it, has the new
+owner borrow against it, then closes it.
+
+Mezo's price oracle is a chain precompile that Foundry's EVM can't run, so
+the test reads the live price over RPC and pins the feed to it.
+
+## Repository
+
+```
+src/TroveAccount.sol         the borrower of record, controlled by an NFT
+src/TrovePositions.sol       ERC-721 + clone factory; openPosition() mints and opens in one transaction
+src/TroveMarket.sol          listings, equity pricing, offers, buyer and seller protections
+test/TroveMarket.t.sol       25 unit tests over a mock of MUSD's borrowing rules
+test/TroveMarket.fork.t.sol  end to end against live MUSD on a testnet fork
+script/Deploy.s.sol          deploys over MUSD on Mezo testnet (31611) or mainnet (31612)
+web/                         the market (Next.js, wagmi): browse, open, manage, list, buy, offer
+scripts/abi.mjs              regenerates web/src/lib/abi.ts from the build
+```
+
+## Run it
+
+```sh
 forge test
+MEZO_FORK=1 MEZO_FORK_BLOCK=$(cast block-number --rpc-url https://rpc.test.mezo.org) \
+  forge test --match-contract Fork
+
+forge script script/Deploy.s.sol --rpc-url https://rpc.test.mezo.org --broadcast --slow --interactives 1
+
+cd web
+npm install
+cp .env.example .env.local   # the two printed addresses and the deploy block
+npm run dev
 ```
 
-## Before deploying
+## Limits and what's next
 
-Two addresses are missing from the public docs and must be confirmed before
-this can run on-chain:
+- **Only Troves opened through Assumable are transferable.** MUSD has no
+  way to move an existing Trove to a new owner. Migrating one means repaying
+  it and reopening it inside a TroveAccount in the same transaction, which
+  needs flash liquidity in MUSD. That is the natural v2.
+- Each Trove keeps MUSD's rules: the 1,800 MUSD minimum debt, the 200 MUSD
+  gas reserve, and liquidation below 110%. A listed Trove can still be
+  liquidated or redeemed against. The market then refuses to sell it, and
+  any leftover collateral is claimable by whoever holds the NFT.
 
-- **`StabilityPool` and `PriceFeed`.** Mezo's
-  [contracts reference](https://mezo.org/docs/users/resources/contracts-reference/)
-  publishes MUSD, MEZO and pool addresses, but not MUSD's core contracts. They
-  are in the `mezo-org/musd` deployment artifacts, or ask in Discord.
-- **A BTC/MUSD swap venue.** The mainnet
-  [MUSD/BTC pool](https://mezo.org/docs/users/resources/contracts-reference/) is
-  `0x52e604c44417233b6CcEDDDc0d640A405Caacefb`, but Mezo Swap's router interface
-  isn't published. [`ISwapper`](src/interfaces/ISwapper.sol) exists so that
-  binding is a single small contract, written once the interface is known,
-  touching no depositor accounting.
+## MUSD contracts used
 
-One assumption to verify: `IPriceFeed.fetchPrice()` is assumed to return 18
-decimals, as Liquity-derived feeds do. The constructor sanity-bounds it so a
-mis-scaled feed fails at deploy rather than silently mispricing every gain.
+All addresses come from mezo-org/musd `solidity/artifacts/deployments`.
+
+| | Testnet (31611) | Mainnet (31612) |
+|---|---|---|
+| BorrowerOperations | `0xCdF7028ceAB81fA0C6971208e83fa7872994beE5` | `0x44b1bac67dDA612a41a58AAf779143B181dEe031` |
+| TroveManager | `0xE47c80e8c23f6B4A1aE41c34837a0599D5D16bb0` | `0x94AfB503dBca74aC3E4929BACEeDfCe19B93c193` |
+| PriceFeed | `0x86bCF0841622a5dAC14A313a15f96A95421b9366` | `0xc5aC5A8892230E0A3e1c473881A2de7353fFcA88` |
+| InterestRateManager | `0xD4D6c36A592A2c5e86035A6bca1d57747a567f37` | `0x4a453700d157717Fe02fB62E7700ED7845048285` |
+| MUSD | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` | `0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186` |

@@ -1,83 +1,65 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { Address, Hash } from "viem";
+import { parseAbiItem, type Address, type Hash } from "viem";
 import { usePublicClient } from "wagmi";
-import { backstopVaultAbi } from "./abi";
-import { vaultAddress, vaultDeployBlock } from "./config";
-
-// Without a deploy block, scan only recent history rather than asking a public
-// RPC for logs from genesis, which most of them refuse.
-const FALLBACK_LOOKBACK = 50_000n;
-const SHOWN = 12;
+import { deployBlockNumber, marketAddress, positionsAddress } from "./config";
 
 export type Entry =
-  | { kind: "deposit"; account: Address; musd: bigint; shares: bigint; block: bigint; tx: Hash; time?: number }
-  | { kind: "withdraw"; account: Address; musd: bigint; shares: bigint; block: bigint; tx: Hash; time?: number }
-  | {
-      kind: "harvest";
-      account: Address;
-      btc: bigint;
-      musd: bigint;
-      fee: bigint;
-      block: bigint;
-      tx: Hash;
-      time?: number;
-    };
+  | { kind: "sold"; id: bigint; seller: Address; buyer: Address; price: bigint; coll: bigint; debt: bigint; tx: Hash; block: bigint; time?: number }
+  | { kind: "listed"; id: bigint; seller: Address; equityShare: boolean; value: bigint; tx: Hash; block: bigint; time?: number }
+  | { kind: "offer"; id: bigint; buyer: Address; amount: bigint; tx: Hash; block: bigint; time?: number }
+  | { kind: "opened"; id: bigint; owner: Address; tx: Hash; block: bigint; time?: number };
 
-export function useActivity() {
+const sold = parseAbiItem(
+  "event Sold(uint256 indexed tokenId, address indexed seller, address indexed buyer, uint256 price, uint256 coll, uint256 debt)",
+);
+const listed = parseAbiItem(
+  "event Listed(uint256 indexed tokenId, address indexed seller, uint8 pricing, uint256 value, uint256 minPrice, uint64 expiry)",
+);
+const offer = parseAbiItem(
+  "event OfferMade(uint256 indexed tokenId, address indexed buyer, uint256 amount, uint256 maxDebt, uint256 minColl, uint64 expiry)",
+);
+const created = parseAbiItem(
+  "event PositionCreated(uint256 indexed tokenId, address indexed account, address indexed owner)",
+);
+
+/** Every sale, listing, offer and new position, newest first, read from events. */
+export function useActivity(limit = 25) {
   const client = usePublicClient();
-
   return useQuery({
-    queryKey: ["activity", vaultAddress?.toLowerCase()],
-    enabled: !!client && vaultAddress !== null,
+    queryKey: ["activity", marketAddress, positionsAddress, limit],
+    enabled: !!client && marketAddress !== null && positionsAddress !== null,
     refetchInterval: 15_000,
     queryFn: async (): Promise<Entry[]> => {
-      if (!client || !vaultAddress) return [];
-
-      const head = await client.getBlockNumber();
-      const fromBlock =
-        vaultDeployBlock ?? (head > FALLBACK_LOOKBACK ? head - FALLBACK_LOOKBACK : 0n);
-
-      const logs = await client.getContractEvents({
-        address: vaultAddress,
-        abi: backstopVaultAbi,
-        fromBlock,
-        toBlock: head,
+      const from = { fromBlock: deployBlockNumber };
+      const [s, l, o, c] = await Promise.all([
+        client!.getLogs({ address: marketAddress!, event: sold, ...from }),
+        client!.getLogs({ address: marketAddress!, event: listed, ...from }),
+        client!.getLogs({ address: marketAddress!, event: offer, ...from }),
+        client!.getLogs({ address: positionsAddress!, event: created, ...from }),
+      ]);
+      const base = (log: { transactionHash: Hash | null; blockNumber: bigint | null }) => ({
+        tx: log.transactionHash!,
+        block: log.blockNumber!,
       });
+      const entries: Entry[] = [
+        ...s.map((e) => ({ kind: "sold" as const, id: e.args.tokenId!, seller: e.args.seller!, buyer: e.args.buyer!, price: e.args.price!, coll: e.args.coll!, debt: e.args.debt!, ...base(e) })),
+        ...l.map((e) => ({ kind: "listed" as const, id: e.args.tokenId!, seller: e.args.seller!, equityShare: e.args.pricing === 1, value: e.args.value!, ...base(e) })),
+        ...o.map((e) => ({ kind: "offer" as const, id: e.args.tokenId!, buyer: e.args.buyer!, amount: e.args.amount!, ...base(e) })),
+        ...c.map((e) => ({ kind: "opened" as const, id: e.args.tokenId!, owner: e.args.owner!, ...base(e) })),
+      ]
+        .sort((a, b) => (a.block > b.block ? -1 : a.block < b.block ? 1 : 0))
+        .slice(0, limit);
 
-      const entries: Entry[] = [];
-      for (const log of logs) {
-        const base = { block: log.blockNumber, tx: log.transactionHash };
-        if (log.eventName === "Deposit") {
-          entries.push({ kind: "deposit", account: log.args.owner!, musd: log.args.assets!, shares: log.args.shares!, ...base });
-        } else if (log.eventName === "Withdraw") {
-          entries.push({ kind: "withdraw", account: log.args.owner!, musd: log.args.assets!, shares: log.args.shares!, ...base });
-        } else if (log.eventName === "Harvested") {
-          entries.push({
-            kind: "harvest",
-            account: log.args.caller!,
-            btc: log.args.btcSwapped!,
-            musd: log.args.musdReceived!,
-            fee: log.args.keeperFee!,
-            ...base,
-          });
-        }
-      }
-
-      const recent = entries.reverse().slice(0, SHOWN);
-
-      // Timestamps for the handful shown, one lookup per distinct block.
-      const blocks = [...new Set(recent.map((e) => e.block))];
+      // Timestamps for the "3m ago" column, one read per distinct block.
+      const blocks = [...new Set(entries.map((e) => e.block))];
       const times = new Map(
         await Promise.all(
-          blocks.map(async (n) => {
-            const b = await client.getBlock({ blockNumber: n });
-            return [n, Number(b.timestamp)] as const;
-          }),
+          blocks.map(async (b) => [b, Number((await client!.getBlock({ blockNumber: b })).timestamp)] as const),
         ),
       );
-      return recent.map((e) => ({ ...e, time: times.get(e.block) }));
+      return entries.map((e) => ({ ...e, time: times.get(e.block) }));
     },
   });
 }

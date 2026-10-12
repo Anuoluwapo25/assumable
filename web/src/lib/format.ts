@@ -34,20 +34,15 @@ export function btc(value: bigint | undefined, digits = 5) {
   });
 }
 
-/** Share price, MUSD per bMUSD. Four places, since the moves are small. */
-export function price(value: bigint | undefined) {
-  return musd(value, 4);
-}
-
 export function pct(numerator: bigint | undefined, denominator: bigint | undefined, digits = 1) {
   if (numerator === undefined || !denominator) return "—";
   const bps = Number((numerator * 10_000n) / denominator);
   return `${(bps / 100).toFixed(digits)}%`;
 }
 
-export function bps(value: bigint | undefined) {
-  if (value === undefined) return "—";
-  return `${(Number(value) / 100).toFixed(2)}%`;
+/** A 1e18-scaled ratio as a percentage: 1.425e18 -> "142.5%". */
+export function ratio(value: bigint | undefined, digits = 1) {
+  return value === undefined ? "—" : pct(value, 10n ** 18n, digits);
 }
 
 export function short(address: string, head = 6, tail = 4) {

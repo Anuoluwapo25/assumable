@@ -11,17 +11,24 @@ export type TxState =
   | { phase: "done"; label: string; hash: Hash }
   | { phase: "error"; label: string; message: string };
 
-// Every revert the vault can raise, said the way a depositor needs to hear it.
+// Every revert the market can raise, said the way a trader needs to hear it.
 const REVERTS: Record<string, string> = {
-  WithdrawalsBlockedByPendingLiquidations:
-    "The Stability Pool is holding withdrawals while a Trove is waiting to be liquidated. Nothing is wrong with your deposit; try again once that liquidation clears.",
-  NothingToHarvest: "There is no BTC to harvest yet. It arrives with the next liquidation.",
-  SwapReturnedTooLittle:
-    "The swap came back below MUSD's oracle price, so the vault refused it. Your funds are untouched.",
-  ERC4626ExceededMaxWithdraw: "That is more than your position is worth.",
-  ERC4626ExceededMaxRedeem: "That is more bMUSD than you hold.",
-  ERC20InsufficientBalance: "Your wallet doesn't hold that much MUSD.",
-  ERC20InsufficientAllowance: "The vault isn't approved to move that much MUSD yet.",
+  NotHolder: "Only the position's current owner can do that.",
+  NotOwner: "Only the position's current owner can do that.",
+  NotApproved: "Approve the market for your positions first.",
+  InvalidPricing: "That price isn't valid.",
+  NotListed: "This position isn't listed any more.",
+  Expired: "That listing or offer has expired.",
+  StaleListing: "The seller moved this position elsewhere; the listing is void.",
+  TroveNotActive: "This Trove has been closed, liquidated or redeemed.",
+  PriceAboveMax: "The price moved above what you agreed to pay. Check the new price and try again.",
+  DebtAboveMax: "The seller added debt since you looked. Nothing was bought.",
+  CollBelowMin: "The seller removed collateral since you looked. Nothing was bought.",
+  NoEquity: "The Trove's debt is worth more than its BTC, so equity pricing gives no price.",
+  NoOffer: "There's no offer from that buyer.",
+  OfferBelowMin: "The buyer lowered their offer. Check it again.",
+  ERC20InsufficientBalance: "Your wallet doesn't hold enough MUSD.",
+  ERC20InsufficientAllowance: "Approve MUSD first.",
 };
 
 export function explain(error: unknown): string {

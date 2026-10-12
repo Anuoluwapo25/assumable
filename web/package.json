@@ -1,13 +1,12 @@
 {
-  "name": "backstop-web",
+  "name": "guardian-web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "abi": "node scripts/abi.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",
