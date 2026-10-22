@@ -96,7 +96,7 @@ export function CashOut() {
     if (!q || !currency || !provider || !address) return;
     try {
       // Before any wallet prompt: is Cash Out really on the wallet's network?
-      await assertContractOnWalletChain(connector, cashOut.module!);
+      await assertContractOnWalletChain(connector, cashOut.module!, positionsAddress!);
       // One-time permission for loans that already exist; a first cash-out opens its own.
       if (loan && !approved.data) {
         setPhase({ step: "working", label: "One-time setup: confirm in your wallet" });
@@ -387,7 +387,10 @@ function QuoteSummary({
         </div>
         {BigInt(q.btcToAdd) > 0n && (
           <div className="flex justify-between gap-4 py-1">
-            <dt className="text-ink-soft">Bitcoin held as security</dt>
+            <dt className="text-ink-soft">
+              Bitcoin held as security
+              <span className="block text-[12.5px]">Still yours: you get it back when you pay off</span>
+            </dt>
             <dd className="num font-semibold">{btcAmount(q.btcToAdd, 5)} BTC</dd>
           </div>
         )}

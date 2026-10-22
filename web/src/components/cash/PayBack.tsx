@@ -8,7 +8,7 @@ import { cashOutModuleAbi } from "@/lib/abi";
 import type { Currency, PaybackJson } from "@/lib/cashout/api";
 import { ApiFailure, api, dollars, money } from "@/lib/cashout/client";
 import { WAD } from "@/lib/cashout/safety";
-import { cashOut, musdContracts } from "@/lib/config";
+import { cashOut, musdContracts, positionsAddress } from "@/lib/config";
 import { assertContractOnWalletChain } from "@/lib/cashout/guard";
 import { hintsOrNone } from "@/lib/cashout/hints";
 import type { Position } from "@/lib/positions";
@@ -27,7 +27,7 @@ export function PayBack({ loan, currency, onDone }: { loan: Position; currency: 
   async function run() {
     if (!address) return;
     try {
-      await assertContractOnWalletChain(connector, cashOut.module!);
+      await assertContractOnWalletChain(connector, cashOut.module!, positionsAddress!);
       setState({ phase: "working", label: "Preparing your payment" });
       const p = await api<PaybackJson>("/api/payback", {
         method: "POST",
