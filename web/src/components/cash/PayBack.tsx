@@ -9,7 +9,7 @@ import type { Currency, PaybackJson } from "@/lib/cashout/api";
 import { ApiFailure, api, dollars, money } from "@/lib/cashout/client";
 import { WAD } from "@/lib/cashout/safety";
 import { cashOut, musdContracts } from "@/lib/config";
-import { hintsFor } from "@/lib/hints";
+import { hintsOrNone } from "@/lib/cashout/hints";
 import type { Position } from "@/lib/positions";
 import { explainCashOut } from "./CashOut";
 
@@ -46,7 +46,7 @@ export function PayBack({ loan, currency, onDone }: { loan: Position; currency: 
       }
 
       setState({ phase: "working", label: "Confirm in your wallet" });
-      const [upper, lower] = await hintsFor(client!, { coll: loan.coll, debt: loan.debt - musd });
+      const [upper, lower] = await hintsOrNone(client!, { coll: loan.coll, debt: loan.debt - musd });
       const hash = await write.mutateAsync({
         address: cashOut.module!,
         abi: cashOutModuleAbi,

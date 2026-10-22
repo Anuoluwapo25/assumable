@@ -9,7 +9,7 @@ import { cashOutModuleAbi, swapBridgeAdapterAbi, trovePositionsAbi } from "@/lib
 import type { CashOutJson, Currency, ProviderInfo, QuoteJson } from "@/lib/cashout/api";
 import { CASH_OUT_REVERTS, api, blockerMessage, btcAmount, dollars, money, usdToLocal } from "@/lib/cashout/client";
 import { chain, cashOut, positionsAddress } from "@/lib/config";
-import { hintsFor } from "@/lib/hints";
+import { hintsOrNone } from "@/lib/cashout/hints";
 import { usePositions, type Position } from "@/lib/positions";
 import { WalletButton, useMounted } from "../Wallet";
 import { Health } from "./Health";
@@ -133,7 +133,7 @@ export function CashOut() {
         minOut: BigInt(c.order.minOut),
         expiry: BigInt(c.order.expiry),
       };
-      const [upper, lower] = await hintsFor(client!, { coll: BigInt(res.quote.newColl), debt: BigInt(res.quote.newDebt) });
+      const [upper, lower] = await hintsOrNone(client!, { coll: BigInt(res.quote.newColl), debt: BigInt(res.quote.newDebt) });
 
       setPhase({ step: "working", label: "Confirm in your wallet" });
       const hash =
