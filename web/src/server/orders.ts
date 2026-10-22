@@ -48,15 +48,65 @@ export type StoredOrder = {
   tx: { hash: Hash; at: number; delivered: bigint; tokenId: bigint } | null;
 };
 
-// In memory, shared across requests in one server process. A deployment that
-// runs several instances needs a database here instead.
+// A cache, in memory, of what this server process created. It's an
+// optimisation, not the record: on serverless hosting the request that polls
+// an order often lands on a different instance, so `reconstructOrder` rebuilds
+// what the timeline needs from the chain, and the provider is read from the
+// order id itself.
 const g = globalThis as unknown as { __cashOutOrders?: Map<Hex, StoredOrder> };
 const store = (g.__cashOutOrders ??= new Map());
 
 export const getOrder = (id: string) => store.get(id.toLowerCase() as Hex);
 
-export function newOrderId(): Hex {
-  return `0x${randomBytes(32).toString("hex")}`;
+/** The first byte of an order id names its provider, so any instance can track it. */
+const PROVIDER_CODES: Record<string, number> = { mock: 1, banxa: 2 };
+
+export function newOrderId(providerId = "mock"): Hex {
+  const id = randomBytes(32);
+  id[0] = PROVIDER_CODES[providerId] ?? 0;
+  return `0x${id.toString("hex")}`;
+}
+
+export function providerOfOrderId(id: Hex): string | null {
+  const code = parseInt(id.slice(2, 4), 16);
+  return Object.entries(PROVIDER_CODES).find(([, c]) => c === code)?.[0] ?? null;
+}
+
+/**
+ * Rebuilds an order from the transaction that executed it, for an instance
+ * that never saw it created. Only orders whose provider can report status
+ * without stored state (the mock) come back this way.
+ */
+export async function reconstructOrder(orderId: Hex, hash: Hash): Promise<StoredOrder | null> {
+  const providerId = providerOfOrderId(orderId);
+  const provider = providerById(providerId);
+  if (!provider || !provider.mock) return null;
+  const order: StoredOrder = {
+    orderId,
+    createdAt: 0,
+    owner: "0x0000000000000000000000000000000000000000",
+    providerId: provider.id,
+    providerRef: "",
+    mock: provider.mock,
+    route: provider.route,
+    fiat: "",
+    fiatAmount: 0n,
+    usdToReceive: 0n,
+    totalFeesUsd: 0n,
+    musdToSend: 0n,
+    musdBorrowed: 0n,
+    surplusMusd: 0n,
+    btcToAdd: 0n,
+    tokenId: 0n,
+    destination: { kind: "bank", institution: "", last4: "" },
+    arrival: "",
+    signed: null,
+    checkoutUrl: null,
+    tx: null,
+  };
+  if (!(await recordTx(order, hash, { useBlockTime: true }))) return null;
+  saveOrder(order);
+  return order;
 }
 
 const types = {
@@ -114,7 +164,7 @@ const cashOutEvent = parseAbiItem(
 );
 
 /** Records the transaction that executed an order, after checking it on-chain. */
-export async function recordTx(order: StoredOrder, hash: Hash): Promise<boolean> {
+export async function recordTx(order: StoredOrder, hash: Hash, opts: { useBlockTime?: boolean } = {}): Promise<boolean> {
   const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
   if (receipt.status !== "success") return false;
   for (const log of receipt.logs) {
@@ -122,7 +172,14 @@ export async function recordTx(order: StoredOrder, hash: Hash): Promise<boolean>
     try {
       const e = decodeEventLog({ abi: cashOutModuleAbi, eventName: "CashOut", data: log.data, topics: log.topics });
       if (e.args.orderId.toLowerCase() !== order.orderId.toLowerCase()) continue;
-      order.tx = { hash, at: Date.now(), delivered: e.args.delivered, tokenId: e.args.tokenId };
+      // Normally when this server saw it; rebuilt elsewhere, the block's time
+      // (on a real chain the two agree to within seconds).
+      const at = opts.useBlockTime
+        ? Math.min(Date.now(), Number((await publicClient.getBlock({ blockNumber: receipt.blockNumber })).timestamp) * 1000)
+        : Date.now();
+      order.owner = e.args.owner;
+      order.route = e.args.adapter.toLowerCase() === cashOut.directAdapter?.toLowerCase() ? "A" : "B";
+      order.tx = { hash, at, delivered: e.args.delivered, tokenId: e.args.tokenId };
       return true;
     } catch {
       // another of the module's events

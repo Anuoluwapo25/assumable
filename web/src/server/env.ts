@@ -37,6 +37,12 @@ export const serverEnv = {
     payoutDelaySeconds: Number(str("MOCK_PAYOUT_DELAY_SECONDS") ?? 20),
   },
 
+  /**
+   * Testnet only: a wallet holding testnet BTC that tops judges and testers up
+   * to what a first cash-out needs, since one faucet drip isn't enough.
+   */
+  demoFaucetKey: key("DEMO_FAUCET_PRIVATE_KEY"),
+
   banxa: {
     apiKey: str("BANXA_API_KEY"),
     partnerRef: str("BANXA_PARTNER_REF"),

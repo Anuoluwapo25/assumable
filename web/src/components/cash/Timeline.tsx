@@ -6,14 +6,29 @@ import type { Currency, OrderJson } from "@/lib/cashout/api";
 import { api, money } from "@/lib/cashout/client";
 import { TxLink } from "../primitives";
 
+export type OrderSummary = { fiat: string; fiatAmount: string; destination: OrderJson["destination"] };
+
 /** The payout's progress, live: loan drawn -> converted -> sent -> paid out. */
-export function Timeline({ orderId, hash, currency }: { orderId: `0x${string}`; hash: Hash | null; currency?: Currency }) {
+export function Timeline({
+  orderId,
+  hash,
+  currency,
+  summary,
+}: {
+  orderId: `0x${string}`;
+  hash: Hash | null;
+  currency?: Currency;
+  /** What the screen already knows, for when the server answering didn't create the order. */
+  summary?: OrderSummary;
+}) {
   const order = useQuery({
-    queryKey: ["cashout-order", orderId],
-    queryFn: () => api<OrderJson>(`/api/order/${orderId}`),
+    queryKey: ["cashout-order", orderId, hash],
+    queryFn: () => api<OrderJson>(`/api/order/${orderId}${hash ? `?tx=${hash}` : ""}`),
     refetchInterval: (q) => (q.state.data?.state === "paid" || q.state.data?.state === "failed" ? false : 3_000),
+    retry: true,
   });
-  const o = order.data;
+  const served = order.data;
+  const o = served && !served.fiat && summary ? { ...served, ...summary } : served;
   const sym = currency && o && currency.code === o.fiat ? currency : { symbol: `${o?.fiat ?? ""} `, code: o?.fiat ?? "" };
 
   return (

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const q = await buildQuote(params);
     if (q.blocker) return json({ error: q.blocker.code, quote: quoteJson(q) }, 422);
 
-    const orderId = newOrderId();
+    const orderId = newOrderId(params.provider.id);
     const po = await params.provider.createOrder({
       orderId,
       owner: params.owner,

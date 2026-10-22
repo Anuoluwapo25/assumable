@@ -13,9 +13,10 @@ import { assertContractOnWalletChain, WrongNetworkError } from "@/lib/cashout/gu
 import { hintsOrNone } from "@/lib/cashout/hints";
 import { usePositions, type Position } from "@/lib/positions";
 import { WalletButton, useMounted } from "../Wallet";
+import { GetBitcoin } from "./GetBitcoin";
 import { Health } from "./Health";
 import { PayBack } from "./PayBack";
-import { Timeline } from "./Timeline";
+import { Timeline, type OrderSummary } from "./Timeline";
 
 /** The module's ABI plus the errors its adapters and the pool router can raise, so reverts decode. */
 const cashOutCallAbi = [
@@ -29,7 +30,7 @@ type Destination = { kind: "bank" | "mobile_money"; institution: string; account
 type Phase =
   | { step: "form" }
   | { step: "working"; label: string }
-  | { step: "tracking"; orderId: `0x${string}`; hash: Hash | null }
+  | { step: "tracking"; orderId: `0x${string}`; hash: Hash | null; summary: OrderSummary }
   | { step: "error"; message: string };
 
 /**
@@ -124,7 +125,7 @@ export function CashOut() {
       if (!res.call) {
         // The partner needs to check who you are before it gives a payout address.
         if (res.checkoutUrl) window.open(res.checkoutUrl, "_blank", "noopener");
-        setPhase({ step: "tracking", orderId: res.orderId, hash: null });
+        setPhase({ step: "tracking", orderId: res.orderId, hash: null, summary: summaryOf(res, dest) });
         return;
       }
 
@@ -156,7 +157,7 @@ export function CashOut() {
               value: BigInt(c.value),
             });
 
-      setPhase({ step: "tracking", orderId: res.orderId, hash });
+      setPhase({ step: "tracking", orderId: res.orderId, hash, summary: summaryOf(res, dest) });
       await client!.waitForTransactionReceipt({ hash });
       await api(`/api/order/${res.orderId}/tx`, { method: "POST", body: JSON.stringify({ hash }) }).catch(() => {});
       void positions.refetch();
@@ -186,7 +187,7 @@ export function CashOut() {
   if (phase.step === "tracking") {
     return (
       <Card>
-        <Timeline orderId={phase.orderId} hash={phase.hash} currency={currency} />
+        <Timeline orderId={phase.orderId} hash={phase.hash} currency={currency} summary={phase.summary} />
         <button className="btn-outline mt-6 w-full" onClick={() => { setPhase({ step: "form" }); setAmount(""); }}>
           Cash out again
         </button>
@@ -286,7 +287,7 @@ export function CashOut() {
             </div>
           </fieldset>
 
-          <QuoteSummary quote={q} loading={quote.isFetching && !q} error={quote.error} currency={currency} listed={listed} loan={loan} />
+          <QuoteSummary quote={q} loading={quote.isFetching && !q} error={quote.error} currency={currency} listed={listed} loan={loan} onFunded={() => void quote.refetch()} />
 
           <button type="submit" className="btn-ink mt-5 w-full !py-4 text-[17px]" disabled={!canCashOut}>
             {phase.step === "working" ? phase.label : q && !q.blocker && currency ? `Cash out ${money(q.fiatAmount, currency)}` : "Cash out"}
@@ -317,7 +318,9 @@ function QuoteSummary({
   currency,
   listed,
   loan,
+  onFunded,
 }: {
+  onFunded?: () => void;
   quote: QuoteJson | undefined;
   loading: boolean;
   error: Error | null;
@@ -337,7 +340,14 @@ function QuoteSummary({
   if (error) return <Notice tone="stop">{error.message}</Notice>;
   if (loading) return <p className="mt-5 text-[14px] text-ink-soft" aria-live="polite">Working out your price…</p>;
   if (!q || !currency) return null;
-  if (q.blocker) return <Notice tone="warn">{blockerMessage(q, currency)}</Notice>;
+  if (q.blocker) {
+    return (
+      <>
+        <Notice tone="warn">{blockerMessage(q, currency)}</Notice>
+        {q.blocker.code === "exceeds-safe-limit" && q.isNewLoan && <GetBitcoin onFunded={onFunded} />}
+      </>
+    );
+  }
 
   const local = (usd: string) => money(usdToLocal(usd, q), currency);
   // Two routes, one way of describing them: exchange and transfer costs are
@@ -442,6 +452,14 @@ export function Field({
 /** Whether a browser wallet extension is present: without one, Connect can't do anything. */
 function hasInjectedWallet() {
   return typeof window !== "undefined" && "ethereum" in window && !!(window as { ethereum?: unknown }).ethereum;
+}
+
+function summaryOf(res: CashOutJson, d: Destination): OrderSummary {
+  return {
+    fiat: res.quote.fiat,
+    fiatAmount: res.quote.fiatAmount,
+    destination: { kind: d.kind, institution: d.institution, last4: d.account.replace(/\s+/g, "").slice(-4) },
+  };
 }
 
 function useDebounced<T>(value: T, ms: number) {

@@ -1,11 +1,22 @@
 import type { OrderJson } from "@/lib/cashout/api";
+import { isHash, isHex } from "viem";
 import { fail, json } from "@/server/http";
-import { getOrder, orderStatus } from "@/server/orders";
+import { getOrder, orderStatus, reconstructOrder, recordTx } from "@/server/orders";
 
-/** GET /api/order/:id: the payout's timeline, loan drawn -> converted -> sent -> paid out. */
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+/**
+ * GET /api/order/:id[?tx=<hash>]: the payout's timeline, loan drawn ->
+ * converted -> sent -> paid out. With `tx`, any server instance can answer,
+ * rebuilding the order from the chain if it didn't create it.
+ */
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const order = getOrder(id);
+  if (!isHex(id) || id.length !== 66) return fail("no such order", 404);
+  const tx = new URL(req.url).searchParams.get("tx");
+  let order = getOrder(id);
+  if (order && !order.tx && tx && isHash(tx)) {
+    await recordTx(order, tx).catch(() => false);
+  }
+  if (!order && tx && isHash(tx)) order = (await reconstructOrder(id, tx).catch(() => null)) ?? undefined;
   if (!order) return fail("no such order", 404);
   try {
     const s = await orderStatus(order);
