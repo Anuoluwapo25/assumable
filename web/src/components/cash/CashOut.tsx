@@ -11,7 +11,6 @@ import { CASH_OUT_REVERTS, api, blockerMessage, btcAmount, dollars, money, usdTo
 import { chain, cashOut, positionsAddress } from "@/lib/config";
 import { hintsFor } from "@/lib/hints";
 import { usePositions, type Position } from "@/lib/positions";
-import { explain } from "@/lib/tx";
 import { WalletButton, useMounted } from "../Wallet";
 import { Health } from "./Health";
 import { PayBack } from "./PayBack";
@@ -96,7 +95,7 @@ export function CashOut() {
     try {
       // One-time permission for loans that already exist; a first cash-out opens its own.
       if (loan && !approved.data) {
-        setPhase({ step: "working", label: "Allow cash-outs from this wallet (one time)" });
+        setPhase({ step: "working", label: "One-time setup: confirm in your wallet" });
         const h = await write.mutateAsync({
           address: positionsAddress!,
           abi: trovePositionsAbi,
@@ -333,10 +332,11 @@ function QuoteSummary({
   if (q.blocker) return <Notice tone="warn">{blockerMessage(q, currency)}</Notice>;
 
   const local = (usd: string) => money(usdToLocal(usd, q), currency);
+  // Two routes, one way of describing them: exchange and transfer costs are
+  // shown together, so nothing here hints at swaps or bridges.
   const rows: [string, string][] = [
-    ["Payout partner fee", q.fees.provider],
-    ["Dollar conversion", q.fees.conversion],
-    ["Transfer to the partner", q.fees.bridge],
+    ["Payout fee", q.fees.provider],
+    ["Exchange and transfer", (BigInt(q.fees.conversion) + BigInt(q.fees.bridge)).toString()],
     ["Loan fee (one-off)", q.fees.borrowing],
   ].filter(([, v]) => BigInt(v) > 0n) as [string, string][];
 
@@ -376,8 +376,8 @@ function QuoteSummary({
       </dl>
       {BigInt(q.surplusMusd) > 0n && (
         <p className="text-[13.5px] leading-snug text-ink-soft">
-          The smallest first loan is about {dollars(q.musdBorrowed)}, so {dollars(q.surplusMusd)} you don&apos;t cash out now stays in
-          your wallet as digital dollars. Use it for your next cash-out or to pay back.
+          The smallest first loan is about {dollars(q.musdBorrowed)}, so the other {dollars(q.surplusMusd)} stays in your wallet,
+          ready for paying back whenever you like.
         </p>
       )}
       <div className="rounded-2xl bg-musd-mist px-4 py-3 text-musd-deep">
@@ -392,8 +392,8 @@ function QuoteSummary({
 function DemoBanner() {
   return (
     <p className="rounded-2xl bg-btc-pale px-4 py-3 text-[14px] leading-snug text-ink">
-      <b>Demo payout.</b> This partner is simulated: the loan and the transfer are real on {chain.name}, but no money reaches a bank
-      or mobile wallet, and exchange rates are sample values.
+      <b>Demo payout.</b> The loan is real on {chain.name}, but no money reaches a bank or mobile wallet, and exchange rates are
+      sample values.
     </p>
   );
 }
@@ -448,5 +448,7 @@ export function explainCashOut(error: unknown): string {
     if (name && CASH_OUT_REVERTS[name]) return CASH_OUT_REVERTS[name];
     if (/insufficient funds/i.test(error.message)) return "Your wallet needs a little more Bitcoin to cover this.";
   }
-  return explain(error);
+  // Never show raw contract or wallet errors here: they talk about Troves and gas.
+  console.error(error);
+  return "That didn't go through, and nothing was taken. Please try again in a moment.";
 }

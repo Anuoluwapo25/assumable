@@ -66,7 +66,7 @@ export const banxaProvider: OfframpProvider = {
       fiatPerUsd: String(fiatPerUsd),
       feeBps: Number(fiatAmount) > 0 ? Math.ceil((fee / Number(fiatAmount)) * 10_000) : 0,
       flatFeeUsd: "0",
-      arrival: "30–60 minutes for the bridge to Ethereum, then Banxa's payout time",
+      arrival: "Usually within a few hours",
     };
   },
 

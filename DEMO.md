@@ -51,9 +51,9 @@ $83,000.
 
 **0:50 to 1:10: the timeline.**
 
-The screen switches to *On its way*: **Loan drawn → Converted to dollars → Sent
-to the payout partner → Paid out (simulated)**. The first three tick as the
-transaction lands, and the payout ticks about 12 seconds later.
+The screen switches to *On its way*: **Borrowed against your Bitcoin → Money
+ready to send → Sent for payout → In your account (simulated)**. The first
+three tick as the transaction lands, and the last about 12 seconds later.
 
 > "One transaction: it borrowed MUSD against the BTC, checked the cap, and
 > handed exactly that MUSD to an approved payout partner, at an address only

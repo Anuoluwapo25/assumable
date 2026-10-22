@@ -174,24 +174,14 @@ export async function orderStatus(order: StoredOrder): Promise<OrderStatus> {
 
   const at = order.tx?.at ?? null;
   const steps: Step[] = [
-    { key: "drawn", label: "Loan drawn against your Bitcoin", state: at ? "done" : "active", at },
-    {
-      key: "converted",
-      label: "Converted to dollars",
-      state: at ? "done" : "waiting",
-      at,
-      detail: order.route === "B" ? "Swapped in Mezo's dollar pool" : undefined,
-    },
-    {
-      key: "sent",
-      label: "Sent to the payout partner",
-      state: at ? "done" : "waiting",
-      at,
-      detail: order.route === "B" ? "Crossing to Ethereum: usually 30–60 minutes" : undefined,
-    },
+    // The same four plain steps whichever route carries the money: the user
+    // never needs to know about pools, bridges or chains.
+    { key: "drawn", label: "Borrowed against your Bitcoin", state: at ? "done" : "active", at },
+    { key: "converted", label: "Money ready to send", state: at ? "done" : "waiting", at },
+    { key: "sent", label: "Sent for payout", state: at ? "done" : "waiting", at },
     {
       key: "paid",
-      label: order.mock ? "Paid out to your account (simulated)" : "Paid out to your account",
+      label: order.mock ? "In your account (simulated)" : "In your account",
       state: paid ? "done" : failed ? "failed" : at ? "active" : "waiting",
       at: paid && ps?.state === "paid" ? ps.at : null,
       detail: failed && ps?.state === "failed" ? ps.reason : undefined,

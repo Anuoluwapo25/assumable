@@ -82,8 +82,8 @@ export function Timeline({ orderId, hash, currency }: { orderId: `0x${string}`; 
 }
 
 const PLACEHOLDER: OrderJson["steps"] = [
-  { key: "drawn", label: "Loan drawn against your Bitcoin", state: "active", at: null },
-  { key: "converted", label: "Converted to dollars", state: "waiting", at: null },
-  { key: "sent", label: "Sent to the payout partner", state: "waiting", at: null },
-  { key: "paid", label: "Paid out to your account", state: "waiting", at: null },
+  { key: "drawn", label: "Borrowed against your Bitcoin", state: "active", at: null },
+  { key: "converted", label: "Money ready to send", state: "waiting", at: null },
+  { key: "sent", label: "Sent for payout", state: "waiting", at: null },
+  { key: "paid", label: "In your account", state: "waiting", at: null },
 ];

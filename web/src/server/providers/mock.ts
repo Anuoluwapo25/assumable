@@ -49,7 +49,7 @@ export const mockProvider: OfframpProvider = {
       arrival:
         this.route === "A"
           ? "About a minute (simulated payout)"
-          : "30–60 minutes for the bridge to Ethereum, then a simulated payout",
+          : "Usually within an hour (simulated payout)",
     };
   },
 

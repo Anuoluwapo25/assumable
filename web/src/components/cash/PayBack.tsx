@@ -26,7 +26,7 @@ export function PayBack({ loan, currency, onDone }: { loan: Position; currency: 
   async function run() {
     if (!address) return;
     try {
-      setState({ phase: "working", label: "Getting your dollars" });
+      setState({ phase: "working", label: "Preparing your payment" });
       const p = await api<PaybackJson>("/api/payback", {
         method: "POST",
         body: JSON.stringify({ tokenId: loan.id.toString(), owner: address, fiat: currency.code, amount: amount.replace(/,/g, "") }),
@@ -71,7 +71,7 @@ export function PayBack({ loan, currency, onDone }: { loan: Position; currency: 
           });
         }
         if (b.error === "wallet-short") {
-          return setState({ phase: "error", text: `Demo: your wallet holds ${dollars(b.have ?? "0")} in digital dollars, and this needs ${dollars(b.need ?? "0")}.` });
+          return setState({ phase: "error", text: `Demo: your wallet balance is ${dollars(b.have ?? "0")}, and this needs ${dollars(b.need ?? "0")}.` });
         }
         return setState({ phase: "error", text: e.message });
       }
@@ -104,7 +104,7 @@ export function PayBack({ loan, currency, onDone }: { loan: Position; currency: 
         </button>
       </form>
       <p className="mt-2 text-[12.5px] leading-snug text-ink-mute">
-        Demo: no money is collected. The dollars come from your wallet balance (or a demo treasury), then repay your loan.
+        Demo: no money is collected. The payment comes from your wallet balance.
       </p>
       {state.phase === "done" && <p className="mt-3 text-[14px] text-musd-deep" aria-live="polite">{state.text}</p>}
       {state.phase === "error" && (
