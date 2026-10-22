@@ -1,5 +1,5 @@
 import "server-only";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, fallback, http, type Address } from "viem";
 import {
   assetsBridgeAbi,
   borrowerOperationsAbi,
@@ -9,9 +9,9 @@ import {
   troveAccountAbi,
   trovePositionsAbi,
 } from "@/lib/abi";
-import { bridgeContracts, cashOut, chain, musdContracts, poolContracts, positionsAddress, rpcUrl } from "@/lib/config";
+import { bridgeContracts, cashOut, chain, musdContracts, poolContracts, positionsAddress, rpcUrls } from "@/lib/config";
 
-export const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+export const publicClient = createPublicClient({ chain, transport: fallback(rpcUrls.map((u) => http(u))) });
 
 /** BTC left in the wallet for gas: Mezo charges gas in BTC. */
 export const GAS_RESERVE_BTC = 2n * 10n ** 14n; // 0.0002 BTC

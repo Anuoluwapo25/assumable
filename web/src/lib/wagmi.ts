@@ -1,10 +1,11 @@
+import { fallback } from "viem";
 import { createConfig, http, injected } from "wagmi";
-import { chain, rpcUrl } from "./config";
+import { chain, rpcUrls } from "./config";
 
 export const wagmiConfig = createConfig({
   chains: [chain],
   connectors: [injected()],
-  transports: { [chain.id]: http(rpcUrl) },
+  transports: { [chain.id]: fallback(rpcUrls.map((u) => http(u))) },
   ssr: true,
 });
 

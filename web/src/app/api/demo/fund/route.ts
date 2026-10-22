@@ -1,7 +1,7 @@
-import { createWalletClient, http, isAddress, type Address } from "viem";
+import { createWalletClient, fallback, http, isAddress, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { GAS_COMPENSATION, WAD } from "@/lib/cashout/safety";
-import { chain, rpcUrl } from "@/lib/config";
+import { chain, rpcUrls } from "@/lib/config";
 import { GAS_RESERVE_BTC, publicClient, readMarket } from "@/server/chain";
 import { serverEnv } from "@/server/env";
 import { fail, json } from "@/server/http";
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   if (treasury < amount + GAS_RESERVE_BTC) return fail("the demo Bitcoin wallet is empty right now; use the faucet instead", 503);
 
   recent.set(address.toLowerCase(), Date.now());
-  const wallet = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  const wallet = createWalletClient({ account, chain, transport: fallback(rpcUrls.map((u) => http(u))) });
   const hash = await wallet.sendTransaction({ to: address as Address, value: amount });
   await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
   return json({ sent: amount.toString(), balance: (balance + amount).toString(), hash });

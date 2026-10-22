@@ -1,9 +1,9 @@
 import { erc20Abi, isAddress, parseUnits, type Address } from "viem";
-import { createWalletClient, http } from "viem";
+import { createWalletClient, fallback, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { PaybackJson } from "@/lib/cashout/api";
 import { GAS_COMPENSATION, WAD } from "@/lib/cashout/safety";
-import { chain, musdContracts, rpcUrl } from "@/lib/config";
+import { chain, musdContracts, rpcUrls } from "@/lib/config";
 import { publicClient, readMarket, readPosition } from "@/server/chain";
 import { serverEnv } from "@/server/env";
 import { fail, json } from "@/server/http";
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   let source: PaybackJson["source"] = "wallet";
   if (serverEnv.mock.treasuryKey) {
     const account = privateKeyToAccount(serverEnv.mock.treasuryKey);
-    const wallet = createWalletClient({ account, chain, transport: http(rpcUrl) });
+    const wallet = createWalletClient({ account, chain, transport: fallback(rpcUrls.map((u) => http(u))) });
     fundingTx = await wallet.writeContract({
       address: musdContracts.musd,
       abi: erc20Abi,

@@ -9,6 +9,19 @@ export const chain: Chain = chains[chainKey] ?? mezoTestnet;
 
 export const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || chain.rpcUrls.default.http[0];
 
+/**
+ * Where to go when `rpcUrl` errors or times out. Mezo's public testnet RPC
+ * sometimes answers from a node far behind the rest; dRPC's public endpoint
+ * is an independent second source. Not used when a custom RPC (a local fork,
+ * say) is configured, so it can't quietly switch chains.
+ */
+const FALLBACK_RPCS: Record<number, string[]> = {
+  [mezoTestnet.id]: ["https://mezo-testnet.drpc.org"],
+};
+export const rpcUrls: string[] = process.env.NEXT_PUBLIC_RPC_URL
+  ? [rpcUrl]
+  : [rpcUrl, ...(FALLBACK_RPCS[chain.id] ?? [])];
+
 const network = networks[String(chain.id) as keyof typeof networks];
 
 /** The live MUSD system, from config/<network>.json (via scripts/abi.mjs). */
