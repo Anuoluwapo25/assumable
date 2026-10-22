@@ -172,11 +172,17 @@ equity. That is the rescue sale, and it's why Cash Out sits on Assumable.
 
 | | Testnet (31611) |
 |---|---|
-| CashOutModule | not yet deployed (see below) |
-| DirectMUSDAdapter | not yet deployed |
-| SwapBridgeAdapter | not yet deployed |
+| CashOutModule | [`0xA45A01d3A0b5E4d0d56481ee0F77601e07ffdfD5`](https://explorer.test.mezo.org/address/0xA45A01d3A0b5E4d0d56481ee0F77601e07ffdfD5) |
+| DirectMUSDAdapter | [`0x99D91d3f5B82D793e9F238455E5cF53179c517f3`](https://explorer.test.mezo.org/address/0x99D91d3f5B82D793e9F238455E5cF53179c517f3) |
+| SwapBridgeAdapter | [`0xF549a642Ef7496Bc7100eE51F5687E733dAe1AD0`](https://explorer.test.mezo.org/address/0xF549a642Ef7496Bc7100eE51F5687E733dAe1AD0) |
+| Order signer | `0x48a7959Bc45Ad3f71bf1061A7378edE991A47AC3` |
+| Deploy block | 16301041 |
 
-Deploy with `ORDER_SIGNER=<address> RECORD=1 forge script
+It builds on Assumable's testnet deployment: TrovePositions
+`0x46e1954d4fbf8e4e436dfdc8f2eb64f5c15feeaf`, TroveMarket
+`0xeff9dd4aa385e210e5cdccbf485f56e79824f25a`.
+
+To deploy again: `ORDER_SIGNER=<address> RECORD=1 forge script
 script/DeployCashOut.s.sol --rpc-url https://rpc.test.mezo.org --broadcast
 --slow --interactives 1`; `RECORD=1` writes the addresses into
 `config/mezo-testnet.json`, which the app reads.

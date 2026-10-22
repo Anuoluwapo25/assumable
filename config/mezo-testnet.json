@@ -29,10 +29,10 @@
     "accountImplementation": "0x8c3aecd76a7ccbd84bc1ee3a9c0ff95dd7a9611a"
   },
   "cashOut": {
-    "module": "0x0000000000000000000000000000000000000000",
-    "directAdapter": "0x0000000000000000000000000000000000000000",
-    "swapBridgeAdapter": "0x0000000000000000000000000000000000000000",
-    "deployBlock": 0,
+    "module": "0xA45A01d3A0b5E4d0d56481ee0F77601e07ffdfD5",
+    "directAdapter": "0x99D91d3f5B82D793e9F238455E5cF53179c517f3",
+    "swapBridgeAdapter": "0xF549a642Ef7496Bc7100eE51F5687E733dAe1AD0",
+    "deployBlock": 16301041,
     "maxLtvBps": 4000,
     "routeBMinBridgeOut": 10000000,
     "routeBMaxMusdIn": "1000000000000000000000"
