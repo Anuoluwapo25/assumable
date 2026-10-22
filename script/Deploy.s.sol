@@ -13,7 +13,7 @@ import {ITroveManager} from "../src/interfaces/ITroveManager.sol";
 
 /// @notice Deploys the Trove market over the live MUSD system.
 ///
-/// Addresses are from mezo-org/musd `solidity/artifacts/deployments/{matsnet,mainnet}`.
+/// Addresses come from `config/mezo-{testnet,mainnet}.json`, which cite their sources.
 ///
 ///   forge script script/Deploy.s.sol \
 ///     --rpc-url https://rpc.test.mezo.org --broadcast --slow --interactives 1
@@ -28,23 +28,21 @@ contract Deploy is Script {
         address priceFeed;
     }
 
-    function musdFor(uint256 chainId) public pure returns (Musd memory) {
-        if (chainId == 31611) {
-            return Musd({
-                musd: 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503,
-                borrowerOperations: 0xCdF7028ceAB81fA0C6971208e83fa7872994beE5,
-                troveManager: 0xE47c80e8c23f6B4A1aE41c34837a0599D5D16bb0,
-                priceFeed: 0x86bCF0841622a5dAC14A313a15f96A95421b9366
-            });
-        }
-        if (chainId == 31612) {
-            return Musd({
-                musd: 0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186,
-                borrowerOperations: 0x44b1bac67dDA612a41a58AAf779143B181dEe031,
-                troveManager: 0x94AfB503dBca74aC3E4929BACEeDfCe19B93c193,
-                priceFeed: 0xc5aC5A8892230E0A3e1c473881A2de7353fFcA88
-            });
-        }
+    /// @notice The MUSD system for a chain, from `config/<network>.json`.
+    function musdFor(uint256 chainId) public view returns (Musd memory) {
+        string memory json = vm.readFile(configPath(chainId));
+        return Musd({
+            musd: vm.parseJsonAddress(json, ".musd.musd"),
+            borrowerOperations: vm.parseJsonAddress(json, ".musd.borrowerOperations"),
+            troveManager: vm.parseJsonAddress(json, ".musd.troveManager"),
+            priceFeed: vm.parseJsonAddress(json, ".musd.priceFeed")
+        });
+    }
+
+    function configPath(uint256 chainId) public view returns (string memory) {
+        string memory root = vm.projectRoot();
+        if (chainId == 31611) return string.concat(root, "/config/mezo-testnet.json");
+        if (chainId == 31612) return string.concat(root, "/config/mezo-mainnet.json");
         revert("Unsupported chain");
     }
 

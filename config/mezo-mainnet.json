@@ -1,0 +1,40 @@
+{
+  "name": "mezo",
+  "chainId": 31612,
+  "rpcUrl": "https://rpc-http.mezo.boar.network",
+  "sources": "mezo-org/musd solidity/artifacts/deployments/mainnet; mezo-org/documentation users/resources/contracts-reference.md and developers/features/mezo-pools.md; mezod precompile/assetsbridge",
+  "musd": {
+    "musd": "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
+    "borrowerOperations": "0x44b1bac67dDA612a41a58AAf779143B181dEe031",
+    "troveManager": "0x94AfB503dBca74aC3E4929BACEeDfCe19B93c193",
+    "priceFeed": "0xc5aC5A8892230E0A3e1c473881A2de7353fFcA88",
+    "sortedTroves": "0x8C5DB4C62BF29c1C4564390d10c20a47E0b2749f",
+    "hintHelpers": "0xD267b3bE2514375A075fd03C3D9CBa6b95317DC3",
+    "interestRateManager": "0x4a453700d157717Fe02fB62E7700ED7845048285"
+  },
+  "pools": {
+    "router": "0x16A76d3cd3C1e3CE843C6680d6B37E9116b5C706",
+    "poolFactory": "0x83FE469C636C4081b87bA5b3Ae9991c6Ed104248",
+    "musdUsdcPool": "0xEd812AEc0Fecc8fD882Ac3eccC43f3aA80A6c356"
+  },
+  "bridge": {
+    "assetsBridge": "0x7b7c000000000000000000000000000000000012",
+    "musdc": "0x04671C72Aab5AC02A03c1098314b1BB6B560c197",
+    "usdcDecimals": 6,
+    "ethereumChainName": "Ethereum"
+  },
+  "assumable": {
+    "positions": null,
+    "market": null,
+    "accountImplementation": null
+  },
+  "cashOut": {
+    "module": null,
+    "directAdapter": null,
+    "swapBridgeAdapter": null,
+    "deployBlock": null,
+    "maxLtvBps": 4000,
+    "routeBMinBridgeOut": 20000000,
+    "routeBMaxMusdIn": "1000000000000000000000"
+  }
+}
