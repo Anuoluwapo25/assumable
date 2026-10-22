@@ -32,10 +32,10 @@ export const networks = {
       "accountImplementation": "0x8c3aecd76a7ccbd84bc1ee3a9c0ff95dd7a9611a"
     },
     "cashOut": {
-      "module": null,
-      "directAdapter": null,
-      "swapBridgeAdapter": null,
-      "deployBlock": null,
+      "module": "0x0000000000000000000000000000000000000000",
+      "directAdapter": "0x0000000000000000000000000000000000000000",
+      "swapBridgeAdapter": "0x0000000000000000000000000000000000000000",
+      "deployBlock": 0,
       "maxLtvBps": 4000,
       "routeBMinBridgeOut": 10000000,
       "routeBMaxMusdIn": "1000000000000000000000"
@@ -67,15 +67,15 @@ export const networks = {
       "ethereumChainName": "Ethereum"
     },
     "assumable": {
-      "positions": null,
-      "market": null,
-      "accountImplementation": null
+      "positions": "0x0000000000000000000000000000000000000000",
+      "market": "0x0000000000000000000000000000000000000000",
+      "accountImplementation": "0x0000000000000000000000000000000000000000"
     },
     "cashOut": {
-      "module": null,
-      "directAdapter": null,
-      "swapBridgeAdapter": null,
-      "deployBlock": null,
+      "module": "0x0000000000000000000000000000000000000000",
+      "directAdapter": "0x0000000000000000000000000000000000000000",
+      "swapBridgeAdapter": "0x0000000000000000000000000000000000000000",
+      "deployBlock": 0,
       "maxLtvBps": 4000,
       "routeBMinBridgeOut": 20000000,
       "routeBMaxMusdIn": "1000000000000000000000"

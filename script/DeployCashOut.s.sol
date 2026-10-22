@@ -22,6 +22,8 @@ import {Deploy} from "./Deploy.s.sol";
 ///     --rpc-url https://rpc.test.mezo.org --broadcast --slow --interactives 1
 ///
 /// With RECORD=1 the new addresses are written back into the config file.
+/// POSITIONS and MARKET override the Assumable deployment it builds on. In the
+/// config, the zero address means "not deployed on this network".
 contract DeployCashOut is Script {
     struct Config {
         address musd;
@@ -46,8 +48,8 @@ contract DeployCashOut is Script {
         c.poolFactory = vm.parseJsonAddress(json, ".pools.poolFactory");
         c.assetsBridge = vm.parseJsonAddress(json, ".bridge.assetsBridge");
         c.musdc = vm.parseJsonAddress(json, ".bridge.musdc");
-        c.positions = _optionalAddress(json, ".assumable.positions");
-        c.market = _optionalAddress(json, ".assumable.market");
+        c.positions = vm.parseJsonAddress(json, ".assumable.positions");
+        c.market = vm.parseJsonAddress(json, ".assumable.market");
         c.maxLtvBps = uint16(vm.parseJsonUint(json, ".cashOut.maxLtvBps"));
         c.minBridgeOut = vm.parseJsonUint(json, ".cashOut.routeBMinBridgeOut");
         c.maxMusdIn = vm.parseJsonUint(json, ".cashOut.routeBMaxMusdIn");
@@ -55,6 +57,9 @@ contract DeployCashOut is Script {
 
     function run() external {
         (Config memory c, string memory path) = load(block.chainid);
+        // A fresh Assumable (e.g. scripts/local-demo.sh) instead of the recorded one.
+        c.positions = vm.envOr("POSITIONS", c.positions);
+        c.market = vm.envOr("MARKET", c.market);
         require(c.positions != address(0) && c.market != address(0), "deploy Assumable first");
         address signer = vm.envAddress("ORDER_SIGNER");
 
@@ -96,27 +101,14 @@ contract DeployCashOut is Script {
         console2.log("deploy block       ", block.number);
 
         if (vm.envOr("RECORD", false)) {
-            vm.writeJson(vm.toString(address(module)), path, ".cashOut.module");
-            vm.writeJson(vm.toString(address(direct)), path, ".cashOut.directAdapter");
-            vm.writeJson(vm.toString(address(swapBridge)), path, ".cashOut.swapBridgeAdapter");
+            vm.writeJson(_quoted(address(module)), path, ".cashOut.module");
+            vm.writeJson(_quoted(address(direct)), path, ".cashOut.directAdapter");
+            vm.writeJson(_quoted(address(swapBridge)), path, ".cashOut.swapBridgeAdapter");
             vm.writeJson(vm.toString(block.number), path, ".cashOut.deployBlock");
         }
     }
 
-    /// Null in the config means "not deployed on this network yet".
-    function _optionalAddress(string memory json, string memory key)
-        internal
-        view
-        returns (address)
-    {
-        try this.parseAddress(json, key) returns (address a) {
-            return a;
-        } catch {
-            return address(0);
-        }
-    }
-
-    function parseAddress(string memory json, string memory key) external pure returns (address) {
-        return vm.parseJsonAddress(json, key);
+    function _quoted(address a) internal pure returns (string memory) {
+        return string.concat('"', vm.toString(a), '"');
     }
 }

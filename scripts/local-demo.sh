@@ -21,6 +21,8 @@ K1=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d  # seller 
 K2=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a  # seller B
 K3=0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6  # holder, not listed
 K4=0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a  # buyer with MUSD
+K5=0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba  # Cash Out order signer
+BRIDGE=0x7b7c000000000000000000000000000000000012     # AssetsBridge precompile
 
 if ! cast chain-id --rpc-url $RPC >/dev/null 2>&1; then
   echo "starting anvil (fork of Mezo testnet)…"
@@ -29,11 +31,15 @@ if ! cast chain-id --rpc-url $RPC >/dev/null 2>&1; then
   until cast chain-id --rpc-url $RPC >/dev/null 2>&1; do sleep 1; done
 fi
 
-# The public RPC throttles a cold fork; retry each step until it lands.
+# The public RPC throttles a cold fork; retry each step until it lands. A
+# mined-but-reverted transaction (a gas estimate gone stale, for one) counts
+# as a failure too: `cast send` exits 0 for those.
 send() {
   local label=$1; shift
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if cast send --timeout 120 --rpc-url $RPC "$@" >/dev/null 2>&1; then echo "  ✓ $label"; return; fi
+    if cast send --timeout 120 --rpc-url $RPC --json "$@" 2>/dev/null | grep -q '"status":"0x1"'; then
+      echo "  ✓ $label"; return
+    fi
     sleep 3
   done
   echo "  ✗ $label"; exit 1
@@ -69,6 +75,17 @@ send "account 4 offers 7,000 MUSD on #1" --private-key $K4 $MARKET 'makeOffer(ui
 echo "raising the rate for new Troves to 4%, so the seeded 1% Troves show as locked…"
 cast rpc anvil_setStorageAt $RATES 0x0 0x0000000000000000000000000000000000000000000000000000000001900190 --rpc-url $RPC >/dev/null
 
+echo "Cash Out: standing in for the AssetsBridge precompile (anvil can't run it either)…"
+cast rpc anvil_setCode $BRIDGE "$(forge inspect MockAssetsBridge deployedBytecode)" --rpc-url $RPC >/dev/null
+SIGNER=$(cast wallet address --private-key $K5)
+OUT=$(POSITIONS=$POSITIONS MARKET=$MARKET ORDER_SIGNER=$SIGNER \
+  forge script script/DeployCashOut.s.sol --rpc-url $RPC --broadcast --private-key $K0 --slow 2>&1)
+CASHOUT=$(echo "$OUT" | awk '/CashOutModule / {print $2}')
+DIRECT=$(echo "$OUT" | awk '/DirectMUSDAdapter / {print $2}')
+SWAP=$(echo "$OUT" | awk '/SwapBridgeAdapter / {print $2}')
+echo "  CashOutModule  $CASHOUT"
+send "bridge minimum set to testnet's 10 mUSDC" --private-key $K0 $BRIDGE 'setMinBridgeOutAmount(address,uint256)' 0xe1a26db653708A2AD8F824E92Db9852410e33A59 10000000
+
 cat > web/.env.development.local <<ENV
 # Written by scripts/local-demo.sh: the app against the local fork. Delete to go back.
 NEXT_PUBLIC_CHAIN=mezoTestnet
@@ -76,5 +93,12 @@ NEXT_PUBLIC_RPC_URL=$RPC
 NEXT_PUBLIC_POSITIONS_ADDRESS=$POSITIONS
 NEXT_PUBLIC_MARKET_ADDRESS=$MARKET
 NEXT_PUBLIC_DEPLOY_BLOCK=$DEPLOY_BLOCK
+NEXT_PUBLIC_CASHOUT_MODULE=$CASHOUT
+NEXT_PUBLIC_CASHOUT_DIRECT_ADAPTER=$DIRECT
+NEXT_PUBLIC_CASHOUT_SWAP_ADAPTER=$SWAP
+# anvil's public dev key #5: local only, never anywhere real.
+ORDER_SIGNER_PRIVATE_KEY=$K5
+MOCK_PAYOUT_DELAY_SECONDS=12
 ENV
 echo "wrote web/.env.development.local. Now: cd web && npm run dev"
+echo "Drop BTC for the demo with: ./scripts/btc-price.sh 50000"

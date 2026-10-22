@@ -17,7 +17,9 @@ export const musdContracts = network.musd;
 export const poolContracts = network.pools;
 export const bridgeContracts = network.bridge;
 
-const addr = (v: string | null | undefined): Address | null => (v && isAddress(v) ? v : null);
+/** The zero address in config/*.json means "not deployed on this network". */
+const addr = (v: string | null | undefined): Address | null =>
+  v && isAddress(v) && !/^0x0{40}$/.test(v) ? v : null;
 
 /** From `forge script script/Deploy.s.sol`: the env, else the network config. Null until deployed. */
 export const positionsAddress = addr(process.env.NEXT_PUBLIC_POSITIONS_ADDRESS) ?? addr(network.assumable.positions);

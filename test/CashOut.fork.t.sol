@@ -142,6 +142,7 @@ contract CashOutForkTest is Test {
         (CashOutOrder memory o, bytes memory sig) =
             _order(address(swapBridge), 0, 300e18, minOut, "first");
 
+        uint256 unlocksBefore = bridge.unlockCount();
         vm.prank(user);
         (uint256 id, uint256 delivered) =
             module.openAndCashOut{value: 0.1 ether}(o, sig, 1_800e18, address(0), address(0));
@@ -149,8 +150,9 @@ contract CashOutForkTest is Test {
         assertEq(positions.ownerOf(id), user);
         assertEq(delivered, quoted, "delivered what the real pool quoted");
         assertGe(delivered, 10e6);
-        assertEq(bridge.unlockCount(), 1);
-        (address token, uint256 amount,, bytes memory recipient, address sender) = bridge.unlocks(0);
+        assertEq(bridge.unlockCount(), unlocksBefore + 1);
+        (address token, uint256 amount,, bytes memory recipient, address sender) =
+            bridge.unlocks(unlocksBefore);
         assertEq(token, c.musdc);
         assertEq(amount, delivered);
         assertEq(recipient, abi.encodePacked(provider));
