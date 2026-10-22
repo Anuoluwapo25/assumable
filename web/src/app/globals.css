@@ -48,6 +48,11 @@
     @apply btn border-[1.5px] border-ink text-ink hover:bg-ink hover:text-page;
   }
 
+  .input {
+    @apply block w-full rounded-xl bg-page px-3.5 py-3 text-[16px] text-ink ring-1 ring-ink/15 placeholder:text-ink-faint
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-musd;
+  }
+
   .link {
     @apply underline decoration-ink-faint decoration-1 underline-offset-[3px] transition-colors hover:text-musd hover:decoration-musd;
   }

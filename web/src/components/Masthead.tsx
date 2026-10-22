@@ -28,6 +28,9 @@ export function Masthead() {
         <Link href="/#board" className="hidden rounded-full px-3.5 py-2 text-[14.5px] font-medium text-ink-soft hover:bg-white md:inline">
           Market
         </Link>
+        <Link href="/cash" className="hidden rounded-full px-3.5 py-2 text-[14.5px] font-medium text-ink-soft hover:bg-white md:inline">
+          Cash out
+        </Link>
         <Link href="/mine" className="hidden rounded-full px-3.5 py-2 text-[14.5px] font-medium text-ink-soft hover:bg-white md:inline">
           My Troves
         </Link>
