@@ -26,7 +26,9 @@ BRIDGE=0x7b7c000000000000000000000000000000000012     # AssetsBridge precompile
 
 if ! cast chain-id --rpc-url $RPC >/dev/null 2>&1; then
   echo "starting anvil (fork of Mezo testnet)…"
-  BLOCK=$(cast block-number --rpc-url $FORK_RPC)
+  # FORK_BLOCK pins the fork. The public RPC sometimes routes to a node that
+  # lags far behind, which makes a fork of the very latest block fail.
+  BLOCK=${FORK_BLOCK:-$(cast block-number --rpc-url $FORK_RPC)}
   anvil --fork-url $FORK_RPC --fork-block-number "$BLOCK" --port 8545 --silent &
   until cast chain-id --rpc-url $RPC >/dev/null 2>&1; do sleep 1; done
 fi

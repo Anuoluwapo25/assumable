@@ -167,6 +167,11 @@ export function CashOut() {
       <Card>
         <p className="text-[17px] leading-snug text-ink-soft">Connect your wallet to see what your Bitcoin can cash out.</p>
         <WalletButton className="mt-5 w-full" />
+        {mounted && !hasInjectedWallet() && (
+          <p role="alert" className="mt-3 rounded-xl bg-btc-pale px-3 py-2.5 text-[14px] leading-snug text-ink">
+            No wallet found in this browser. Install a browser wallet such as MetaMask, then reload this page.
+          </p>
+        )}
       </Card>
     );
   }
@@ -429,6 +434,11 @@ export function Field({
       <div className="mt-1.5">{children(id)}</div>
     </div>
   );
+}
+
+/** Whether a browser wallet extension is present: without one, Connect can't do anything. */
+function hasInjectedWallet() {
+  return typeof window !== "undefined" && "ethereum" in window && !!(window as { ethereum?: unknown }).ethereum;
 }
 
 function useDebounced<T>(value: T, ms: number) {
