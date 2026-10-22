@@ -18,6 +18,11 @@ In your browser wallet:
   `0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e`.
   It holds test BTC and no loan yet, so it shows the first-time flow.
 
+**Check MetaMask is on the local network, not Mezo Testnet.** Both use chain id
+31611, so the wallet can't tell them apart. The app refuses to send if Cash Out
+isn't on the wallet's network, but keep a separate network entry named
+"Mezo Local" so it's obvious which one is selected.
+
 Keep a terminal open at the repo root for the price drop. The oracle starts at
 $83,000.
 

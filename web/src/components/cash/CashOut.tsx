@@ -9,6 +9,7 @@ import { cashOutModuleAbi, swapBridgeAdapterAbi, trovePositionsAbi } from "@/lib
 import type { CashOutJson, Currency, ProviderInfo, QuoteJson } from "@/lib/cashout/api";
 import { CASH_OUT_REVERTS, api, blockerMessage, btcAmount, dollars, money, usdToLocal } from "@/lib/cashout/client";
 import { chain, cashOut, positionsAddress } from "@/lib/config";
+import { assertContractOnWalletChain, WrongNetworkError } from "@/lib/cashout/guard";
 import { hintsOrNone } from "@/lib/cashout/hints";
 import { usePositions, type Position } from "@/lib/positions";
 import { WalletButton, useMounted } from "../Wallet";
@@ -38,7 +39,7 @@ type Phase =
  */
 export function CashOut() {
   const mounted = useMounted();
-  const { address, chainId } = useConnection();
+  const { address, chainId, connector } = useConnection();
   const providers = useQuery({ queryKey: ["cashout-providers"], queryFn: () => api<ProviderInfo[]>("/api/cashout/providers") });
   const provider = providers.data?.find((p) => p.available);
   const positions = usePositions();
@@ -93,6 +94,8 @@ export function CashOut() {
   async function run() {
     if (!q || !currency || !provider || !address) return;
     try {
+      // Before any wallet prompt: is Cash Out really on the wallet's network?
+      await assertContractOnWalletChain(connector, cashOut.module!);
       // One-time permission for loans that already exist; a first cash-out opens its own.
       if (loan && !approved.data) {
         setPhase({ step: "working", label: "One-time setup: confirm in your wallet" });
@@ -451,6 +454,7 @@ function useDebounced<T>(value: T, ms: number) {
 }
 
 export function explainCashOut(error: unknown): string {
+  if (error instanceof WrongNetworkError) return error.message;
   if (error instanceof BaseError) {
     if (error.walk((e) => e instanceof UserRejectedRequestError)) return "You declined in your wallet. Nothing happened.";
     const revert = error.walk((e) => e instanceof ContractFunctionRevertedError);

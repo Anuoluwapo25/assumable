@@ -9,6 +9,7 @@ import type { Currency, PaybackJson } from "@/lib/cashout/api";
 import { ApiFailure, api, dollars, money } from "@/lib/cashout/client";
 import { WAD } from "@/lib/cashout/safety";
 import { cashOut, musdContracts } from "@/lib/config";
+import { assertContractOnWalletChain } from "@/lib/cashout/guard";
 import { hintsOrNone } from "@/lib/cashout/hints";
 import type { Position } from "@/lib/positions";
 import { explainCashOut } from "./CashOut";
@@ -17,7 +18,7 @@ type State = { phase: "idle" } | { phase: "working"; label: string } | { phase: 
 
 /** The reverse of a cash-out in one flow: local money in, the loan paid down. */
 export function PayBack({ loan, currency, onDone }: { loan: Position; currency: Currency; onDone: () => void }) {
-  const { address } = useConnection();
+  const { address, connector } = useConnection();
   const client = usePublicClient();
   const write = useWriteContract();
   const [amount, setAmount] = useState("");
@@ -26,6 +27,7 @@ export function PayBack({ loan, currency, onDone }: { loan: Position; currency: 
   async function run() {
     if (!address) return;
     try {
+      await assertContractOnWalletChain(connector, cashOut.module!);
       setState({ phase: "working", label: "Preparing your payment" });
       const p = await api<PaybackJson>("/api/payback", {
         method: "POST",
