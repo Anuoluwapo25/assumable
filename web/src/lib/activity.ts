@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { parseAbiItem, type Address, type Hash } from "viem";
 import { usePublicClient } from "wagmi";
 import { deployBlockNumber, marketAddress, positionsAddress } from "./config";
+import { scanLogs } from "./logs";
 
 export type Entry =
   | { kind: "sold"; id: bigint; seller: Address; buyer: Address; price: bigint; coll: bigint; debt: bigint; tx: Hash; block: bigint; time?: number }
@@ -32,13 +33,16 @@ export function useActivity(limit = 25) {
     enabled: !!client && marketAddress !== null && positionsAddress !== null,
     refetchInterval: 15_000,
     queryFn: async (): Promise<Entry[]> => {
-      const from = { fromBlock: deployBlockNumber };
-      const [s, l, o, c] = await Promise.all([
-        client!.getLogs({ address: marketAddress!, event: sold, ...from }),
-        client!.getLogs({ address: marketAddress!, event: listed, ...from }),
-        client!.getLogs({ address: marketAddress!, event: offer, ...from }),
-        client!.getLogs({ address: positionsAddress!, event: created, ...from }),
+      const scan = <T,>(name: string, fetch: (r: { fromBlock: bigint; toBlock: bigint }) => Promise<T[]>) =>
+        scanLogs(client!, `${name}:${marketAddress}:${positionsAddress}`, deployBlockNumber, fetch);
+      // The market's three event types in one query per window, positions in another.
+      const [market, c] = await Promise.all([
+        scan("market", (r) => client!.getLogs({ address: marketAddress!, events: [sold, listed, offer], ...r })),
+        scan("created", (r) => client!.getLogs({ address: positionsAddress!, event: created, ...r })),
       ]);
+      const s = market.filter((e) => e.eventName === "Sold") as Extract<(typeof market)[number], { eventName: "Sold" }>[];
+      const l = market.filter((e) => e.eventName === "Listed") as Extract<(typeof market)[number], { eventName: "Listed" }>[];
+      const o = market.filter((e) => e.eventName === "OfferMade") as Extract<(typeof market)[number], { eventName: "OfferMade" }>[];
       const base = (log: { transactionHash: Hash | null; blockNumber: bigint | null }) => ({
         tx: log.transactionHash!,
         block: log.blockNumber!,

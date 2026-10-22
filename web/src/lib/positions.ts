@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { usePublicClient, useReadContracts } from "wagmi";
 import { interestRateManagerAbi, priceFeedAbi, troveMarketAbi, trovePositionsAbi } from "./abi";
 import { deployBlockNumber, marketAddress, musdContracts as m, positionsAddress } from "./config";
+import { scanLogs } from "./logs";
 
 export type Pricing = "fixed" | "equity";
 
@@ -126,12 +127,9 @@ export function useOffers(tokenId: bigint) {
     enabled: !!client && marketAddress !== null,
     refetchInterval: REFRESH,
     queryFn: async (): Promise<Offer[]> => {
-      const logs = await client!.getLogs({
-        address: marketAddress!,
-        event: offerMade,
-        args: { tokenId },
-        fromBlock: deployBlockNumber,
-      });
+      const logs = await scanLogs(client!, `offers:${marketAddress}:${tokenId}`, deployBlockNumber, (r) =>
+        client!.getLogs({ address: marketAddress!, event: offerMade, args: { tokenId }, ...r }),
+      );
       const buyers = [...new Set(logs.map((l) => l.args.buyer!))];
       if (buyers.length === 0) return [];
       const current = await client!.multicall({

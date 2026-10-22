@@ -29,7 +29,8 @@ export const networks = {
     "assumable": {
       "positions": "0x46e1954d4fbf8e4e436dfdc8f2eb64f5c15feeaf",
       "market": "0xeff9dd4aa385e210e5cdccbf485f56e79824f25a",
-      "accountImplementation": "0x8c3aecd76a7ccbd84bc1ee3a9c0ff95dd7a9611a"
+      "accountImplementation": "0x8c3aecd76a7ccbd84bc1ee3a9c0ff95dd7a9611a",
+      "deployBlock": 16082001
     },
     "cashOut": {
       "module": "0xA45A01d3A0b5E4d0d56481ee0F77601e07ffdfD5",
@@ -69,7 +70,8 @@ export const networks = {
     "assumable": {
       "positions": "0x0000000000000000000000000000000000000000",
       "market": "0x0000000000000000000000000000000000000000",
-      "accountImplementation": "0x0000000000000000000000000000000000000000"
+      "accountImplementation": "0x0000000000000000000000000000000000000000",
+      "deployBlock": 0
     },
     "cashOut": {
       "module": "0x0000000000000000000000000000000000000000",

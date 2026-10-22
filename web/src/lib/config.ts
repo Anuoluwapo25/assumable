@@ -40,8 +40,9 @@ export const marketAddress = addr(process.env.NEXT_PUBLIC_MARKET_ADDRESS) ?? add
 export const deployed = positionsAddress !== null && marketAddress !== null;
 
 const deployBlock = process.env.NEXT_PUBLIC_DEPLOY_BLOCK;
-/** Where to start reading offer events. */
-export const deployBlockNumber = deployBlock && /^\d+$/.test(deployBlock) ? BigInt(deployBlock) : 0n;
+/** Where to start reading the market's events: the env, else the network config. */
+export const deployBlockNumber =
+  deployBlock && /^\d+$/.test(deployBlock) ? BigInt(deployBlock) : BigInt(network.assumable.deployBlock ?? 0);
 
 /** From `forge script script/DeployCashOut.s.sol`. Null until deployed. */
 export const cashOut = {
