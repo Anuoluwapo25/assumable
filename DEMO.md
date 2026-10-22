@@ -4,6 +4,10 @@
 one tap and keeps the Bitcoin. Then BTC crashes, and the app shows them the
 way out before they lose anything.
 
+The same flow runs live on Mezo testnet at **https://assumable.vercel.app/cash**
+(see the README's *Try it live*). Record the cash-out there if you like; the
+BTC crash needs the local fork, where the oracle can be moved.
+
 ## Before you record (5 minutes, once)
 
 ```sh

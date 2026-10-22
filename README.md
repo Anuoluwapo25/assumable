@@ -59,6 +59,21 @@ TroveMarket
 - **Offers** let a buyer escrow MUSD for a specific Trove, with the same
   limits, and the holder accepts whenever they like.
 
+## Try it live
+
+**https://assumable.vercel.app/cash**, on Mezo testnet.
+
+1. Open it in a browser with MetaMask (or any EVM wallet), tap **Connect
+   wallet**, and accept adding or switching to **Mezo Testnet**.
+2. No test BTC? Type an amount: the screen offers **Get test Bitcoin**, which
+   tops your wallet up to what a first cash-out needs. (Or use
+   [Mezo's faucet](https://faucet.test.mezo.org).)
+3. Enter an amount in naira (or KES, GHS, USD) and where to send it, then tap
+   **Cash out**. Watch it arrive.
+
+The loan, the safety cap and the payment to the partner are real Mezo testnet
+transactions. The bank payout itself is simulated ("Demo payout").
+
 ## Cash Out: Bitcoin to local money in one tap
 
 Most people borrow MUSD to **spend** it, and spending usually means local money
