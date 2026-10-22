@@ -25,7 +25,7 @@ export function Timeline({ orderId, hash, currency }: { orderId: `0x${string}`; 
         <p className="mt-1 text-[15px] text-ink-soft">
           {money(o.fiatAmount, sym)} to {o.destination.kind === "bank" ? o.destination.institution : `${o.destination.institution} mobile money`} ending{" "}
           <span className="num">{o.destination.last4}</span>
-          {o.mock && <span className="ml-2 rounded-full bg-btc-pale px-2 py-0.5 text-[12px] font-semibold text-ink">Demo payout</span>}
+          {o.mock && <span className="ml-2 inline-block whitespace-nowrap rounded-full bg-btc-pale px-2 py-0.5 text-[12px] font-semibold text-ink">Demo payout</span>}
         </p>
       )}
 

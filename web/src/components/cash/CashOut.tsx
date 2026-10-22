@@ -380,7 +380,10 @@ function QuoteSummary({
           your wallet as digital dollars. Use it for your next cash-out or to pay back.
         </p>
       )}
-      <p className="rounded-2xl bg-musd-mist px-4 py-3 text-[15px] font-semibold leading-snug text-musd-deep">{q.sentence}</p>
+      <div className="rounded-2xl bg-musd-mist px-4 py-3 text-musd-deep">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.04em] opacity-80">After this cash-out</p>
+        <p className="mt-0.5 text-[15px] font-semibold leading-snug">{q.sentence}</p>
+      </div>
       <p className="text-[13px] leading-snug text-ink-soft">Your Bitcoin stays yours. You can pay back any time.</p>
     </div>
   );

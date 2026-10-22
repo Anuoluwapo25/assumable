@@ -34,7 +34,13 @@ export function usdToLocal(usd: bigint | string, q: Pick<QuoteJson, "fiatPerUsd"
   return (BigInt(usd) * BigInt(q.fiatPerUsd)) / 10n ** 18n;
 }
 
-export const dollars = (usd: bigint | string) => formatUsd(BigInt(usd));
+/** Dollars: whole above $100, with cents below, so small fees don't read as $0 or $1. */
+export function dollars(usd: bigint | string) {
+  const v = BigInt(usd);
+  if (v >= 100n * 10n ** 18n) return formatUsd(v);
+  const n = Number(formatUnits(v, 18));
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export function btcAmount(v: bigint | string, digits = 5) {
   return Number(formatUnits(BigInt(v), 18)).toLocaleString("en-US", {

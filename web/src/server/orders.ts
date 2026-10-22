@@ -44,6 +44,7 @@ export type StoredOrder = {
   /** Set once the provider has issued a deposit address and the order is signed. */
   signed: { order: ChainOrder; signature: Hex } | null;
   checkoutUrl: string | null;
+  /** `at` is when this server confirmed it: chain clocks (a local fork's, say) can drift. */
   tx: { hash: Hash; at: number; delivered: bigint; tokenId: bigint } | null;
 };
 
@@ -121,8 +122,7 @@ export async function recordTx(order: StoredOrder, hash: Hash): Promise<boolean>
     try {
       const e = decodeEventLog({ abi: cashOutModuleAbi, eventName: "CashOut", data: log.data, topics: log.topics });
       if (e.args.orderId.toLowerCase() !== order.orderId.toLowerCase()) continue;
-      const block = await publicClient.getBlock({ blockNumber: receipt.blockNumber });
-      order.tx = { hash, at: Number(block.timestamp) * 1000, delivered: e.args.delivered, tokenId: e.args.tokenId };
+      order.tx = { hash, at: Date.now(), delivered: e.args.delivered, tokenId: e.args.tokenId };
       return true;
     } catch {
       // another of the module's events
