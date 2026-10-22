@@ -184,6 +184,20 @@ describe("quoteCashOut", () => {
       expect(q.musdBorrowed).toBe(q.musdToSend);
     });
 
+    it("doesn't count the minimum loan's fee against a tiny first cash-out", () => {
+      // ₦1,500 = $1. The loan fee on MUSD's 1,800 minimum is $1.80, but almost
+      // all of that loan stays in the wallet; only this payout's share counts.
+      const q = quoteCashOut({ ...fresh, fiatAmount: w(1_500) });
+      expect(q.blocker).toBeNull();
+      expect(q.fees.borrowing).toBe(w(1.8)); // still shown honestly in the total
+    });
+
+    it("never suggests a minimum of zero", () => {
+      const q = quoteCashOut({ ...base, fiatAmount: w(1), providerFlatFeeUsd: w(0.01) });
+      expect(q.blocker?.code).toBe("fees-exceed-amount");
+      expect(q.blocker!.fiatLimit!).toBeGreaterThanOrEqual(WAD);
+    });
+
     it("can't open without enough BTC for the minimum loan", () => {
       const q = quoteCashOut({ ...fresh, walletBtc: w(0.01) });
       expect(q.blocker?.code).toBe("exceeds-safe-limit");

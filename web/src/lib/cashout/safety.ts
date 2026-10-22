@@ -184,7 +184,16 @@ export function quoteCashOut(i: SafetyInput): SafetyQuote {
     liquidationPrice,
     dropBps,
     sentence: safetySentence(liquidationPrice, dropBps),
-    blocker: blockerFor(i, { usdToReceive, totalFeesUsd, delivered: g.delivered, musdToSend, btcToAdd }),
+    // Whether fees swamp the payout is judged on the fees this payout causes:
+    // on a first loan, the loan fee on MUSD's minimum is mostly for the
+    // surplus that stays in the wallet, not for this cash-out.
+    blocker: blockerFor(i, {
+      usdToReceive,
+      payoutFeesUsd: fees.provider + fees.bridge + fees.conversion + (musdToSend * i.borrowingRate) / WAD,
+      delivered: g.delivered,
+      musdToSend,
+      btcToAdd,
+    }),
   };
 }
 
@@ -211,9 +220,9 @@ function invalidQuote(i: SafetyInput, isNewLoan: boolean): SafetyQuote {
 
 function blockerFor(
   i: SafetyInput,
-  q: { usdToReceive: bigint; totalFeesUsd: bigint; delivered: bigint; musdToSend: bigint; btcToAdd: bigint },
+  q: { usdToReceive: bigint; payoutFeesUsd: bigint; delivered: bigint; musdToSend: bigint; btcToAdd: bigint },
 ): Blocker | null {
-  if (q.totalFeesUsd >= q.usdToReceive) return { code: "fees-exceed-amount", fiatLimit: minFiat(i) };
+  if (q.payoutFeesUsd >= q.usdToReceive) return { code: "fees-exceed-amount", fiatLimit: minFiat(i) };
   if (q.delivered < i.minDeliveredUsd) return { code: "below-minimum", fiatLimit: minFiat(i) };
   if (i.maxMusdPerOrder > 0n && q.musdToSend > i.maxMusdPerOrder) {
     return { code: "above-order-limit", fiatLimit: toFiat(netDown(i.maxMusdPerOrder, i), i) };
@@ -227,9 +236,10 @@ function minFiat(i: SafetyInput): bigint {
   const atMinimum = i.minDeliveredUsd > i.bridgeFeeUsd ? i.minDeliveredUsd - i.bridgeFeeUsd : 0n;
   const fromMinimum = (atMinimum * (BPS - i.providerFeeBps)) / BPS;
   const usd = fromMinimum > i.providerFlatFeeUsd ? fromMinimum - i.providerFlatFeeUsd : 0n;
-  // Fees are roughly fixed plus proportional; ask for at least twice the fixed part.
+  // Fees are roughly fixed plus proportional; ask for at least twice the fixed
+  // part, and never suggest less than one whole unit of currency.
   const fixedFees = i.providerFlatFeeUsd + i.bridgeFeeUsd;
-  return toFiat(max(usd, fixedFees * 2n), i);
+  return max(toFiat(max(usd, fixedFees * 2n), i), WAD);
 }
 
 /** Whole dollars with thousands separators: 61234567890000000000000n -> "$61,235". */

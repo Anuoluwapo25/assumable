@@ -57,7 +57,9 @@ export function blockerMessage(q: QuoteJson, currency: Currency): string {
     case "invalid":
       return "Enter how much you'd like to receive.";
     case "fees-exceed-amount":
-      return `That's so small the fees would be more than you receive. Try ${limit ?? "a larger amount"} or more.`;
+      return limit && BigInt(b.fiatLimit!) > 10n ** 18n
+        ? `That's so small the fees would be more than you receive. Try ${limit} or more.`
+        : "That's so small the fees would be more than you receive. Try a larger amount.";
     case "below-minimum":
       return `The smallest cash-out with this partner is about ${limit}.`;
     case "above-order-limit":
