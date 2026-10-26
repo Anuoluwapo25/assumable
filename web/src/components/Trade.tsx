@@ -429,6 +429,10 @@ function Manage({ p, price, onDone }: { p: Position; price?: bigint; onDone: () 
   });
   const a = { address: p.account, abi: troveAccountAbi } as const;
   const closeCost = p.debt - GAS_COMPENSATION;
+  // Interest accrues every second, so by the time `close` runs the debt is a
+  // little above what this page last read. Approve 1 MUSD of headroom (about
+  // hours of interest): `close` only takes what's owed.
+  const closeApproval = closeCost + WAD;
   const meta = MANAGE.find((x) => x.id === tab)!;
 
   const after =
@@ -446,7 +450,7 @@ function Manage({ p, price, onDone }: { p: Position; price?: bigint; onDone: () 
     // Hints only save gas; MUSD accepts zero addresses.
     const h = [ZERO, ZERO] as const;
     if (tab === "close") {
-      if (!(await funds.ensure(tx.run, closeCost))) return;
+      if (!(await funds.ensure(tx.run, closeApproval))) return;
       await tx.run("Close Trove", () => write.mutateAsync({ ...a, functionName: "close" }));
       return;
     }
