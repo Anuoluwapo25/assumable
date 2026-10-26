@@ -2,7 +2,7 @@ import "server-only";
 import { parseUnits, type Address } from "viem";
 import { BPS, WAD, quoteCashOut, type SafetyInput, type SafetyQuote } from "@/lib/cashout/safety";
 import { cashOut } from "@/lib/config";
-import { bridgeMinimum, quoteSwap, readMarket, readPosition, walletBtc } from "./chain";
+import { bridgeMinimum, findOwnedPosition, quoteSwap, readMarket, readPosition, walletBtc } from "./chain";
 import type { OfframpProvider } from "./providers/types";
 
 /** Mezo's native bridge charges about $3 per withdrawal, taken on Ethereum. */
@@ -40,6 +40,11 @@ export async function buildQuote(args: {
     throw new QuoteError("amount must be a plain number");
   }
 
+  // No loan named: use the one they already have, if any, rather than opening another.
+  if (args.tokenId === 0n) {
+    const existing = await findOwnedPosition(owner);
+    if (existing) args = { ...args, tokenId: existing };
+  }
   const position = args.tokenId > 0n ? await readPosition(args.tokenId) : null;
   if (args.tokenId > 0n && !position) throw new QuoteError("no such position");
   if (position && position.owner.toLowerCase() !== owner.toLowerCase()) throw new QuoteError("not your position");

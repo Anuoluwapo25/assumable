@@ -1,6 +1,7 @@
 import "server-only";
 import { createPublicClient, fallback, http, type Address } from "viem";
 import {
+  troveMarketAbi,
   assetsBridgeAbi,
   borrowerOperationsAbi,
   cashOutModuleAbi,
@@ -9,7 +10,7 @@ import {
   troveAccountAbi,
   trovePositionsAbi,
 } from "@/lib/abi";
-import { bridgeContracts, cashOut, chain, musdContracts, poolContracts, positionsAddress, rpcUrls } from "@/lib/config";
+import { bridgeContracts, cashOut, chain, marketAddress, musdContracts, poolContracts, positionsAddress, rpcUrls } from "@/lib/config";
 
 export const publicClient = createPublicClient({ chain, transport: fallback(rpcUrls.map((u) => http(u))) });
 
@@ -30,6 +31,37 @@ export async function readPosition(tokenId: bigint): Promise<Position | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * The caller's existing loan, if they have one: an active position they own,
+ * preferring one that isn't listed for sale. A first cash-out must never open
+ * a second loan for someone who already has one, whatever the page thinks.
+ */
+export async function findOwnedPosition(owner: Address): Promise<bigint | null> {
+  if (!positionsAddress || !marketAddress) return null;
+  const next = await publicClient.readContract({ address: positionsAddress, abi: trovePositionsAbi, functionName: "nextId" });
+  const ids = Array.from({ length: Number(next) - 1 }, (_, i) => BigInt(i + 1));
+  if (ids.length === 0) return null;
+  const rows = await publicClient.multicall({
+    allowFailure: true,
+    contracts: ids.flatMap((id) => [
+      { address: positionsAddress!, abi: trovePositionsAbi, functionName: "ownerOf" as const, args: [id] as const },
+      { address: marketAddress!, abi: troveMarketAbi, functionName: "quote" as const, args: [id] as const },
+      { address: marketAddress!, abi: troveMarketAbi, functionName: "listings" as const, args: [id] as const },
+    ]),
+  });
+  const mine = ids.filter((_, i) => {
+    const o = rows[3 * i];
+    const q = rows[3 * i + 1];
+    return o.status === "success" && (o.result as string).toLowerCase() === owner.toLowerCase()
+      && q.status === "success" && (q.result as { active: boolean }).active;
+  });
+  const unlisted = mine.find((id) => {
+    const l = rows[3 * ids.indexOf(id) + 2];
+    return l.status === "success" && (l.result as readonly unknown[])[0] === "0x0000000000000000000000000000000000000000";
+  });
+  return unlisted ?? mine[0] ?? null;
 }
 
 /** Everything about MUSD and the module that a quote depends on. */

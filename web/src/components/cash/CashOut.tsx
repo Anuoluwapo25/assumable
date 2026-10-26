@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useState } from "react";
 import { BaseError, ContractFunctionRevertedError, UserRejectedRequestError, isAddressEqual, parseAbi, type Hash } from "viem";
@@ -64,7 +64,10 @@ export function CashOut() {
 
   const quote = useQuery({
     queryKey: ["cashout-quote", provider?.id, currency?.code, debounced, address, loan?.id.toString()],
-    enabled: ready && !!provider && !!currency && /^\d+(\.\d+)?$/.test(debounced) && Number(debounced) > 0,
+    // Only once the user's loans are known: quoting before then would treat a
+    // borrower as new. (The server double-checks too.)
+    enabled:
+      ready && !!provider && !!currency && positions.isSuccess && /^\d+(\.\d+)?$/.test(debounced) && Number(debounced) > 0,
     refetchInterval: 20_000,
     queryFn: () =>
       api<QuoteJson>(
@@ -88,6 +91,12 @@ export function CashOut() {
 
   const client = usePublicClient();
   const write = useWriteContract();
+  const queryClient = useQueryClient();
+  /** After a cash-out: the user now has (another) loan, so old quotes are void. */
+  const refreshAfterCashOut = async () => {
+    queryClient.removeQueries({ queryKey: ["cashout-quote"] });
+    await positions.refetch();
+  };
   const destOk = dest.institution.trim() && /^[0-9+ ]{6,24}$/.test(dest.account) && dest.name.trim();
   const q = quote.data;
   const canCashOut = ready && q && !q.blocker && destOk && !listed && phase.step !== "working" && !!cashOut.module;
@@ -97,19 +106,6 @@ export function CashOut() {
     try {
       // Before any wallet prompt: is Cash Out really on the wallet's network?
       await assertContractOnWalletChain(connector, cashOut.module!, positionsAddress!);
-      // One-time permission for loans that already exist; a first cash-out opens its own.
-      if (loan && !approved.data) {
-        setPhase({ step: "working", label: "One-time setup: confirm in your wallet" });
-        const h = await write.mutateAsync({
-          address: positionsAddress!,
-          abi: trovePositionsAbi,
-          functionName: "setApprovalForAll",
-          args: [cashOut.module!, true],
-        });
-        await client!.waitForTransactionReceipt({ hash: h });
-        await approved.refetch();
-      }
-
       setPhase({ step: "working", label: "Locking in your price" });
       const res = await api<CashOutJson>("/api/cashout", {
         method: "POST",
@@ -130,6 +126,19 @@ export function CashOut() {
       }
 
       const c = res.call;
+      // One-time permission when borrowing against a loan that already exists
+      // (the server may have found it even if this page hadn't yet). A first
+      // cash-out opens its own loan and needs none.
+      if (c.fn === "cashOut" && !(await approved.refetch()).data) {
+        setPhase({ step: "working", label: "One-time setup: confirm in your wallet" });
+        const h = await write.mutateAsync({
+          address: positionsAddress!,
+          abi: trovePositionsAbi,
+          functionName: "setApprovalForAll",
+          args: [cashOut.module!, true],
+        });
+        await client!.waitForTransactionReceipt({ hash: h });
+      }
       const order = {
         ...c.order,
         tokenId: BigInt(c.order.tokenId),
@@ -160,7 +169,7 @@ export function CashOut() {
       setPhase({ step: "tracking", orderId: res.orderId, hash, summary: summaryOf(res, dest) });
       await client!.waitForTransactionReceipt({ hash });
       await api(`/api/order/${res.orderId}/tx`, { method: "POST", body: JSON.stringify({ hash }) }).catch(() => {});
-      void positions.refetch();
+      await refreshAfterCashOut();
     } catch (e) {
       setPhase({ step: "error", message: explainCashOut(e) });
     }
@@ -188,7 +197,7 @@ export function CashOut() {
     return (
       <Card>
         <Timeline orderId={phase.orderId} hash={phase.hash} currency={currency} summary={phase.summary} />
-        <button className="btn-outline mt-6 w-full" onClick={() => { setPhase({ step: "form" }); setAmount(""); }}>
+        <button className="btn-outline mt-6 w-full" onClick={() => { void refreshAfterCashOut(); setPhase({ step: "form" }); setAmount(""); }}>
           Cash out again
         </button>
       </Card>
@@ -477,7 +486,7 @@ function useDebounced<T>(value: T, ms: number) {
 export function explainCashOut(error: unknown): string {
   if (error instanceof WrongNetworkError) return error.message;
   if (error instanceof BaseError) {
-    if (error.walk((e) => e instanceof UserRejectedRequestError)) return "You declined in your wallet. Nothing happened.";
+    if (error.walk((e) => e instanceof UserRejectedRequestError)) return "Cancelled. Nothing was sent; tap Cash out when you're ready.";
     const revert = error.walk((e) => e instanceof ContractFunctionRevertedError);
     const name = revert instanceof ContractFunctionRevertedError ? revert.data?.errorName : undefined;
     if (name && CASH_OUT_REVERTS[name]) return CASH_OUT_REVERTS[name];
