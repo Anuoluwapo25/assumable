@@ -99,7 +99,7 @@ Under that button, one transaction on Mezo:
 flowchart LR
     U[User: amount + destination] -->|quote| API[Backend<br/>/api/quote]
     U -->|Cash out| API2[Backend<br/>/api/cashout]
-    API2 -->|sell order| P[Payout partner<br/>Mock · Banxa · regional]
+    API2 -->|sell order| P[Payout partner<br/>Mock · Bitnob · Banxa]
     P -->|deposit address| API2
     API2 -->|EIP-712 signed order| W[Wallet]
     W -->|one transaction| M[CashOutModule]
@@ -156,6 +156,42 @@ equity. That is the rescue sale, and it's why Cash Out sits on Assumable.
 | Payout partner `mock` | **MOCK.** Receives the MUSD for real, then *simulates* the bank/mobile-money payout. Fixed sample exchange rates. Labelled "Demo payout" on screen |
 | Pay back's on-ramp | **MOCK.** No money is collected; the MUSD comes from the wallet or a demo treasury |
 | Payout partner `banxa` | **Stub.** Built against Banxa's v2 sell API as publicly described, off until sandbox credentials are set, field names marked VERIFY. Never reports a success it didn't get |
+
+### Real payouts: Bitnob
+
+The partner we're connecting for real payouts is **Bitnob**, which pays out
+to banks and mobile money across Africa (Nigeria, Kenya, Ghana and more).
+Bitnob's API pays out **from a business's Bitnob balance in USDT/USDC**, and
+that balance is topped up by sending stablecoins to a Bitnob deposit address.
+It doesn't take MUSD, as far as its published API shows. So MUSD reaches it
+through Route B:
+
+```
+Cash out ─▶ MUSD borrowed against BTC                    (Mezo)
+         ─▶ MUSD → mUSDC in Mezo's stable pool           (Mezo)
+         ─▶ bridged out as USDC to Bitnob's deposit address (Mezo native bridge)
+         ─▶ Bitnob balance credited
+         ─▶ backend: payout quote → initialize → finalize
+         ─▶ naira / cedis / shillings in the user's bank or mobile wallet
+```
+
+The first three steps already run on testnet. Bitnob replaces only the
+simulated last step: one provider adapter behind the same interface as the
+mock and Banxa, with no contract or screen changes.
+
+- **Speed:** the bridge takes 30–60 minutes, so the business keeps a float
+  in its Bitnob balance and pays the user at once; the incoming USDC refills it.
+- **Safety:** payouts are triggered by Bitnob confirming the deposit landed,
+  never by our own on-chain event, so testnet or forged MUSD can't release
+  real money. Bitnob stays off on testnet, payouts are capped per order, and
+  live payouts need an explicit switch.
+- **Better, later:** if Bitnob accepts MUSD directly, the swap and bridge
+  disappear and Cash Out sends MUSD straight to it (Route A): cheaper, about
+  a minute, and MUSD end to end.
+
+Status: the integration is designed against Bitnob's v2 API (HMAC-signed
+requests, payouts funded from balance); it goes live once our API
+credentials are confirmed.
 
 ### Security model
 
@@ -229,7 +265,7 @@ web/                         the market (Next.js, wagmi): browse, open, manage, 
 web/src/app/cash/            the Cash Out screen
 web/src/app/api/             the off-ramp backend: quote, cashout, order status, payback
 web/src/lib/cashout/safety.ts the safety math (21 tests: npm test)
-web/src/server/providers/    payout partners: mock, banxa (stub), and the slot for a regional one
+web/src/server/providers/    payout partners: mock, banxa (stub); Bitnob plugs in here
 scripts/abi.mjs              regenerates web/src/lib/abi.ts and networks.ts from the build and config
 scripts/local-demo.sh        a seeded local fork with Cash Out deployed; scripts/btc-price.sh moves BTC
 ```
@@ -265,6 +301,10 @@ moves BTC's price for the demo's crash. See [DEMO.md](DEMO.md).
   gas reserve, and liquidation below 110%. A listed Trove can still be
   liquidated or redeemed against. The market then refuses to sell it, and
   any leftover collateral is claimable by whoever holds the NFT.
+- **Cash Out's bank payout is simulated** until Bitnob goes live (see *Real
+  payouts: Bitnob*). Next: Bitnob live, asking payout partners to accept MUSD
+  directly (Route A), splitting large Route B orders across the MUSD/mUSDC
+  and MUSD/mUSDT pools, and mainnet.
 
 ## MUSD contracts used
 
