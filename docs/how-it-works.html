@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How Assumable Cash Out works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&display=block" rel="stylesheet">
+<style>
+  :root { --page:#f6f6f2; --ink:#0c0c0b; --soft:#3d3d39; --mute:#76766f; --line:#d9d9d0;
+          --musd:#1d36f5; --musd-deep:#1226c4; --mist:#e7eafe; --btc:#f7931a; --btc-pale:#fde7c8; --ok:#0f8a4f; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1600px; height: 900px; background: var(--page); color: var(--ink);
+               font-family: Archivo, system-ui, sans-serif; font-variation-settings: "wdth" 100; }
+  .wrap { padding: 56px 72px 44px; height: 100%; display: flex; flex-direction: column; }
+  .eyebrow { font-size: 18px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--musd); }
+  h1 { margin-top: 10px; font-size: 50px; line-height: 1; font-weight: 900; letter-spacing: -.035em; font-variation-settings: "wdth" 125; }
+  h1 span { color: var(--musd); }
+  .sub { margin-top: 14px; font-size: 22px; color: var(--soft); }
+  .flow { margin-top: 38px; display: grid; grid-template-columns: 1fr 64px 1.15fr 64px 1fr 64px 1fr; align-items: stretch; }
+  .card { background: #fff; border: 1.5px solid var(--line); border-radius: 28px; padding: 26px 24px 24px; display: flex; flex-direction: column; }
+  .icon { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; font-weight: 900; font-size: 30px; }
+  .step { margin-top: 18px; font-size: 14px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+  .title { margin-top: 6px; font-size: 30px; font-weight: 900; letter-spacing: -.02em; font-variation-settings: "wdth" 112; }
+  .desc { margin-top: 10px; font-size: 17px; line-height: 1.38; color: var(--soft); }
+  .tag { margin-top: auto; padding-top: 16px; font-size: 15px; font-weight: 700; }
+  .musd { background: var(--musd); border-color: var(--musd); color: #fff; box-shadow: 0 24px 50px -24px rgba(29,54,245,.65); }
+  .musd .step { color: rgba(255,255,255,.75); } .musd .desc { color: rgba(255,255,255,.9); } .musd .tag { color: #fff; }
+  .arrow { display: grid; place-items: center; }
+  .arrow svg { width: 52px; height: 24px; }
+  .routes { margin-top: 12px; display: grid; gap: 8px; }
+  .route { font-size: 16px; line-height: 1.3; padding: 10px 12px; border-radius: 14px; background: var(--page); color: var(--soft); }
+  .route b { color: var(--ink); }
+  .bottom { margin-top: 28px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 28px; align-items: stretch; }
+  .safety { background: var(--mist); border-radius: 24px; padding: 18px 26px; color: var(--musd-deep); }
+  .safety .k { font-size: 14px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+  .safety .v { margin-top: 6px; font-size: 22px; font-weight: 800; line-height: 1.3; }
+  .exit { background: var(--btc-pale); border-radius: 24px; padding: 18px 26px; }
+  .exit .k { font-size: 14px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #a85d00; }
+  .exit .v { margin-top: 6px; font-size: 20px; font-weight: 700; line-height: 1.35; }
+  .foot { margin-top: 20px; display: flex; justify-content: space-between; font-size: 16px; color: var(--mute); }
+  .foot b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Assumable · Cash Out on Mezo</div>
+  <h1>Bitcoin to local money, <span>through MUSD</span>.</h1>
+  <p class="sub">One tap for the user: Bitcoin in, naira out. Underneath, every cash-out is a new MUSD loan against their BTC.</p>
+
+  <div class="flow">
+    <div class="card">
+      <div class="icon" style="background:var(--btc);color:#fff">₿</div>
+      <div class="step">1 · Your Bitcoin</div>
+      <div class="title">Locked as security</div>
+      <p class="desc">BTC goes into the user's own loan on Mezo. It isn't sold, and it comes back when the loan is paid off.</p>
+      <div class="tag" style="color:#a85d00">Still yours</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 52 24"><path d="M2 12h44m-10-9 10 9-10 9" fill="none" stroke="#0c0c0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+    <div class="card musd">
+      <div class="icon" style="background:#fff;color:var(--musd)">$</div>
+      <div class="step">2 · MUSD</div>
+      <div class="title">Borrowed against it</div>
+      <p class="desc">MUSD, Mezo's Bitcoin-backed dollar, is minted by MUSD's own contracts in the same transaction. The contract refuses anything above 40% loan-to-value.</p>
+      <div class="tag">One transaction · 40% safety cap</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 52 24"><path d="M2 12h44m-10-9 10 9-10 9" fill="none" stroke="#1d36f5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+    <div class="card">
+      <div class="icon" style="background:var(--ink);color:#fff">⇄</div>
+      <div class="step">3 · Payout partner</div>
+      <div class="title">MUSD delivered</div>
+      <div class="routes">
+        <div class="route"><b>Route A:</b> MUSD straight to the partner on Mezo</div>
+        <div class="route"><b>Route B:</b> MUSD → USDC in Mezo's pool → bridged to the partner</div>
+      </div>
+      <div class="tag" style="color:var(--soft)">Address signed by our backend</div>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 52 24"><path d="M2 12h44m-10-9 10 9-10 9" fill="none" stroke="#0c0c0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+    <div class="card">
+      <div class="icon" style="background:var(--ok);color:#fff">₦</div>
+      <div class="step">4 · Local money</div>
+      <div class="title">In the bank</div>
+      <p class="desc">Naira, cedis or shillings land in a bank or mobile-money account. Partner: Bitnob (in progress); demo payout today.</p>
+      <div class="tag" style="color:var(--ok)">NGN · GHS · KES · USD</div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="safety">
+      <div class="k">What the user sees</div>
+      <div class="v">"Your Bitcoin is safe unless BTC falls below $31,000 (a 62% drop)."</div>
+    </div>
+    <div class="exit">
+      <div class="k">If BTC crashes</div>
+      <div class="v">Pay the MUSD back, or <b>sell the loan</b> on Assumable's market: a buyer takes over the BTC and the debt and pays the user the equity.</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Live on Mezo testnet · <b>assumable.vercel.app/cash</b></span>
+    <span>github.com/Anuoluwapo25/assumable</span>
+  </div>
+</div>
+</body>
+</html>

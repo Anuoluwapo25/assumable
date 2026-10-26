@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo-wordmark.png" alt="Assumable" width="560"></p>
+
 # Assumable
 
 **Assumable loans for Bitcoin: buy and sell live MUSD Troves on Mezo.**
@@ -75,6 +77,8 @@ The loan, the safety cap and the payment to the partner are real Mezo testnet
 transactions. The bank payout itself is simulated ("Demo payout").
 
 ## Cash Out: Bitcoin to local money in one tap
+
+![How Cash Out works: Bitcoin locked as security, MUSD borrowed against it, delivered to a payout partner, local money in the bank](docs/how-it-works.png)
 
 Most people borrow MUSD to **spend** it, and spending usually means local money
 in a bank or mobile-money account. Cash Out is that, as one button: pick an
